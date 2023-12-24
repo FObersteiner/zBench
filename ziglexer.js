@@ -144,8 +144,6 @@ const Tok = {
     r_paren: { src: ")", tag: Tag.r_paren },
     period: { src: ".", tag: Tag.period },
     comma: { src: ",", tag: Tag.comma },
-    question_mark: { src: "?", tag: Tag.question_mark },
-    asterisk: { src: "*", tag: Tag.asterisk },
     identifier: (name) => { return { src: name, tag: Tag.identifier } },
 };
 

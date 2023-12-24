@@ -1,55 +1,34 @@
 "use strict";
 
-var zigAnalysis = {
-  typeKinds, 
-  rootMod, 
-  modules, 
-  astNodes, 
-  calls, 
-  files, 
-  decls, 
-  exprs, 
-  types,
-  comptimeExprs, 
-  guideSections
-};
-
-let skipNextHashChange = null;
+var zigAnalysis;
 
 const NAV_MODES = {
   API: "#A;",
   GUIDES: "#G;",
 };
 
-
-var scrollHistory = {};
-
 (function() {
   const domBanner = document.getElementById("banner");
   const domMain = document.getElementById("main");
   const domStatus = document.getElementById("status");
-  const domSectNavAPI = document.getElementById("sectNavAPI");
-  const domListNavAPI = document.getElementById("listNavAPI");
-  const domSectNavGuides = document.getElementById("sectNavGuides");
-  const domListNavGuides = document.getElementById("listNavGuides");
+  const domSectNav = document.getElementById("sectNav");
+  const domListNav = document.getElementById("listNav");
   const domApiSwitch = document.getElementById("ApiSwitch");
   const domGuideSwitch = document.getElementById("guideSwitch");
   const domGuidesMenu = document.getElementById("guidesMenu");
-  const domGuidesMenuTitle = document.getElementById("guidesMenuTitle");
-  const domGuideTocList = document.getElementById("guideTocList");
-  const domGuideTocListEmtpy = document.getElementById("guideTocListEmpty");
+  const domApiMenu = document.getElementById("apiMenu");
+  const domGuidesList = document.getElementById("guidesList");
+  const domSectMainMod = document.getElementById("sectMainMod");
+  const domSectMods = document.getElementById("sectMods");
   const domListMods = document.getElementById("listMods");
   const domSectTypes = document.getElementById("sectTypes");
-  const domListTypesLeft = document.getElementById("listTypesLeft");
-  const domListTypesRight = document.getElementById("listTypesRight");
+  const domListTypes = document.getElementById("listTypes");
   const domSectTests = document.getElementById("sectTests");
   const domListTests = document.getElementById("listTests");
   const domSectDocTests = document.getElementById("sectDocTests");
   const domDocTestsCode = document.getElementById("docTestsCode");
   const domSectNamespaces = document.getElementById("sectNamespaces");
-  const domListNamespacesLeft = document.getElementById("listNamespacesLeft");
-  const domListNamespacesRight = document.getElementById("listNamespacesRight");
-  const domNoDocsNamespaces = document.getElementById("noDocsNamespaces");
+  const domListNamespaces = document.getElementById("listNamespaces");
   const domSectErrSets = document.getElementById("sectErrSets");
   const domListErrSets = document.getElementById("listErrSets");
   const domSectFns = document.getElementById("sectFns");
@@ -75,17 +54,16 @@ var scrollHistory = {};
   const domFnNoExamples = document.getElementById("fnNoExamples");
   const domDeclNoRef = document.getElementById("declNoRef");
   const domSearch = document.getElementById("search");
-  const domSearchHelp = document.getElementById("searchHelp");
   const domSearchHelpSummary = document.getElementById("searchHelpSummary");
   const domSectSearchResults = document.getElementById("sectSearchResults");
   const domSectSearchAllResultsLink = document.getElementById("sectSearchAllResultsLink");
   const domDocs = document.getElementById("docs");
-  const domDocsScroll = document.getElementById("docs-scroll");
   const domGuidesSection = document.getElementById("guides");
   const domActiveGuide = document.getElementById("activeGuide");
 
   const domListSearchResults = document.getElementById("listSearchResults");
   const domSectSearchNoResults = document.getElementById("sectSearchNoResults");
+  const domSectInfo = document.getElementById("sectInfo");
   // const domTdTarget = (document.getElementById("tdTarget"));
   const domTdZigVer = document.getElementById("tdZigVer");
   const domHdrName = document.getElementById("hdrName");
@@ -93,7 +71,6 @@ var scrollHistory = {};
   const domSearchKeys = document.getElementById("searchKeys");
   const domPrefsModal = document.getElementById("prefsModal");
   const domSearchPlaceholder = document.getElementById("searchPlaceholder");
-  const domSearchPlaceholderText = document.getElementById("searchPlaceholderText");
   const sourceFileUrlTemplate = "src/{{mod}}/{{file}}.html#L{{line}}"
   const domLangRefLink = document.getElementById("langRefLink");
 
@@ -102,15 +79,6 @@ var scrollHistory = {};
   loadPrefs();
 
   domPrefSlashSearch.addEventListener("change", () => setPrefSlashSearch(domPrefSlashSearch.checked));
-
-  const scrollMonitor = [
-    domActiveGuide,
-    domGuideTocList,
-    domDocsScroll,
-    domSectSearchResults,
-  ];
-
-  computeGuideHashes();
 
   let searchTimer = null;
   let searchTrimResults = true;
@@ -139,10 +107,8 @@ var scrollHistory = {};
   let canonTypeDecls = null; // lazy; use getCanonTypeDecl
 
   let curNav = {
-    hash: "",
     mode: NAV_MODES.API,
     activeGuide: "",
-    activeGuideScrollTo: null,
     // each element is a module name, e.g. @import("a") then within there @import("b")
     // starting implicitly from root module
     modNames: [],
@@ -213,8 +179,11 @@ var scrollHistory = {};
   window.addEventListener("keydown", onWindowKeyDown, false);
   onHashChange();
 
-  // TODO: fix this once langref becomes part of autodoc
-  let langRefVersion = "master";
+  let langRefVersion = zigAnalysis.params.zigVersion;
+  if (!/^\d+\.\d+\.\d+$/.test(langRefVersion)) {
+    // the version is probably not released yet
+    langRefVersion = "master";
+  }
   domLangRefLink.href = `https://ziglang.org/documentation/${langRefVersion}/`;
 
   function renderTitle() {
@@ -454,71 +423,6 @@ var scrollHistory = {};
   //        console.assert(false);
   //        return ({});
   //    }
-    function detectDeclPath(text, context) {
-      let result = "";
-      let separator = ":";
-      const components = text.split(".");
-      let curDeclOrType = undefined;
-      
-      let curContext = context;
-      let limit = 10000;
-      while (curContext) {
-        limit -= 1;
-        
-        if (limit == 0) {
-          throw "too many iterations";
-        }
-        
-        curDeclOrType = findSubDecl(curContext, components[0]);
-        
-        if (!curDeclOrType) {
-          if (curContext.parent_container == null) break;
-          curContext = getType(curContext.parent_container);
-          continue;
-        }
-
-        if (curContext == context) {
-          separator = '.';
-          result = location.hash + separator + components[0];
-        } else {
-          // We had to go up, which means we need a new path!
-          const canonPath = getCanonDeclPath(curDeclOrType.find_subdecl_idx);
-          if (!canonPath) return;
-          
-          let lastModName = canonPath.modNames[canonPath.modNames.length - 1];
-          let fullPath = lastModName + ":" + canonPath.declNames.join(".");
-        
-          separator = '.';
-          result = "#A;" + fullPath;
-        }
-
-        break;
-      } 
-
-      if (!curDeclOrType) {
-        for (let i = 0; i < zigAnalysis.modules.length; i += 1){
-          const p = zigAnalysis.modules[i];
-          if (p.name == components[0]) {
-            curDeclOrType = getType(p.main);
-            result += "#A;" + components[0];
-            break;
-          }
-        }
-      }
-
-      if (!curDeclOrType) return null;
-      
-      for (let i = 1; i < components.length; i += 1) {
-        curDeclOrType = findSubDecl(curDeclOrType, components[i]);
-        if (!curDeclOrType) return null;
-        result += separator + components[i];
-        separator = '.';
-      }
-
-      return result;
-      
-    }
-  
   function renderGuides() {
     renderTitle();
 
@@ -526,20 +430,49 @@ var scrollHistory = {};
     domGuideSwitch.classList.add("active");
     domApiSwitch.classList.remove("active");
     domDocs.classList.add("hidden");
-    domSectNavAPI.classList.add("hidden");
-    domSectNavGuides.classList.remove("hidden");
     domGuidesSection.classList.remove("hidden");
     domActiveGuide.classList.add("hidden");
+    domApiMenu.classList.add("hidden");
     domSectSearchResults.classList.add("hidden");
     domSectSearchAllResultsLink.classList.add("hidden");
     domSectSearchNoResults.classList.add("hidden");
+
+    // sidebar guides list
+    const section_list = zigAnalysis.guide_sections;
+    resizeDomList(domGuidesList, section_list.length, '<div><h2><span></span></h2><ul class="modules"></ul></div>');
+    for (let j = 0; j < section_list.length; j += 1) {
+      const section = section_list[j];
+      const domSectionName = domGuidesList.children[j].children[0].children[0];
+      const domGuides = domGuidesList.children[j].children[1];
+      domSectionName.textContent = section.name;
+      resizeDomList(domGuides, section.guides.length, '<li><a href="#"></a></li>');
+      for (let i = 0; i < section.guides.length; i += 1) {
+        const guide = section.guides[i];
+        let liDom = domGuides.children[i];
+        let aDom = liDom.children[0];
+        aDom.textContent = guide.title;
+        aDom.setAttribute("href", NAV_MODES.GUIDES + guide.name);
+        if (guide.name === curNav.activeGuide) {
+          aDom.classList.add("active");
+        } else {
+          aDom.classList.remove("active");
+        }
+      }
+    }
+
+    if (section_list.length > 0) {
+      domGuidesMenu.classList.remove("hidden");
+    }
+
+
     if (curNavSearch !== "") {
       return renderSearchGuides();
     }
 
+    // main content
     let activeGuide = undefined;
-    outer: for (let i = 0; i < zigAnalysis.guideSections.length; i += 1) {
-      const section = zigAnalysis.guideSections[i];
+    outer: for (let i = 0; i < zigAnalysis.guide_sections.length; i += 1) {
+      const section = zigAnalysis.guide_sections[i];
       for (let j = 0; j < section.guides.length; j += 1) {
         const guide = section.guides[j];
         if (guide.name == curNav.activeGuide) {
@@ -549,137 +482,11 @@ var scrollHistory = {};
       }
     }
 
-
-    // navigation bar 
-    
-    const guideIndexDom = domListNavGuides.children[0].children[0];
-    const guideDom = domListNavGuides.children[1].children[0];
-    if (activeGuide){
-      guideDom.textContent = activeGuide.title;
-      guideDom.setAttribute("href", location.hash);
-      guideDom.classList.remove("hidden");
-      guideIndexDom.classList.remove("active");
-    } else {
-      guideDom.classList.add("hidden");
-      guideIndexDom.classList.add("active");
-    } 
-
-    // main content
-    domGuidesMenuTitle.textContent = "Table of Contents";
-    if (activeGuide) {
-      if (activeGuide.toc != "") {
-        domGuideTocList.innerHTML = activeGuide.toc;
-        // add js callbacks to all links
-        function onLinkClick(ev) {
-          const link = ev.target.getAttribute("href");
-          skipNextHashChange = link;
-          location.replace(link);
-          scrollToHeading(":" + link.split(":")[1], true);
-          ev.preventDefault();
-          ev.stopPropagation();
-        }
-        for (let a of domGuideTocList.querySelectorAll("a")) {
-          a.addEventListener('click', onLinkClick, false); 
-        }
-        domGuideTocList.classList.remove("hidden");
-        domGuideTocListEmtpy.classList.add("hidden");
-      } else {
-        domGuideTocListEmtpy.classList.remove("hidden");
-        domGuideTocList.classList.add("hidden");
-      }
-      
-      let reader = new commonmark.Parser({
-        smart: true,
-        autoDoc: {
-          detectDeclPath: detectDeclPath,
-        }
-      });
-      let ast = reader.parse(activeGuide.body);        
-      let writer = new commonmark.HtmlRenderer();              
-      let result = writer.render(ast);      
-      domActiveGuide.innerHTML = result;
-      if (curNav.activeGuideScrollTo !== null) {
-        scrollToHeading(curNav.activeGuideScrollTo, false);
-      }
-    } else {
-      domGuideTocList.classList.add("hidden");
-      domGuideTocListEmtpy.classList.remove("hidden");
-      
-      if (zigAnalysis.guideSections.length > 1 || (zigAnalysis.guideSections[0].guides.length > 0)) {
-        renderGuidesIndex();
-      } else {
-        noGuidesAtAll();
-      }
-    }
-
-    domGuidesMenu.classList.remove("hidden");
-    domActiveGuide.classList.remove("hidden");
-  }
-
-  // TODO: ensure unique hashes
-  // TODO: hash also guides and their headings
-  function computeGuideHashes() {
-      for (let i = 1; i < zigAnalysis.guideSections.length; i += 1) {
-        const section = zigAnalysis.guideSections[i];
-        section.hash = "section-" + slugify(section.name || i);
-      }
-  }
-
-  function renderGuidesIndex() {
-    // main content 
-    {
-    let html = "";
-      for (let i = 0; i < zigAnalysis.guideSections.length; i += 1) {
-        const section = zigAnalysis.guideSections[i];
-        if (i != 0) { // first section is the default section
-          html += "<h2 id='"+ section.hash +"'>" + section.name + "</h2>";
-      }
-      for (let guide of section.guides) {
-        html += "<ol><li><a href='"+ NAV_MODES.GUIDES + guide.name +"'>" + (guide.title || guide.name) + "</a></li>";
-        html += guide.toc + "</ol>";
-      }
-    }
-    domActiveGuide.innerHTML = html;
-  }
-
-    // sidebar / fast navigation
-    {
-      domGuidesMenuTitle.textContent = "Sections";
-      if (zigAnalysis.guideSections.length > 1) {
-        let html = "";
-        for (let i = 1; i < zigAnalysis.guideSections.length; i += 1) {
-          const section = zigAnalysis.guideSections[i];
-          html += "<li><a href='"+ NAV_MODES.GUIDES + ":" + section.hash +"'>" + section.name + "</a></li>";
-        }
-        domGuideTocList.innerHTML = "<ul>"+html+"</ul>";
-
-        function onLinkClick(ev) {
-          const link = ev.target.getAttribute("href");
-          skipNextHashChange = link;
-          location.replace(link);
-          scrollToHeading(link.split(":")[1], true);
-          ev.preventDefault();
-          ev.stopPropagation();
-        }
-        for (let a of domGuideTocList.querySelectorAll("a")) {
-          a.addEventListener('click', onLinkClick, false); 
-        }
-        
-        domGuideTocList.classList.remove("hidden");
-        domGuideTocListEmtpy.classList.add("hidden");
-      } else {
-        domGuideTocList.classList.add("hidden");
-        domGuideTocListEmtpy.classList.remove("hidden");
-      }
-    }    
-  }
-
-  function noGuidesAtAll() {
+    if (activeGuide == undefined) {
       const root_file_idx = zigAnalysis.modules[zigAnalysis.rootMod].file;
       const root_file_name = getFile(root_file_idx).name;
-    let reader = new commonmark.Parser({smart: true});
-    let ast = reader.parse(`
-# No Guides
+      domActiveGuide.innerHTML = markdown(`
+# Zig Guides
 These autodocs don't contain any guide.
 
 While the API section is a reference guide autogenerated from Zig source code,
@@ -713,11 +520,10 @@ You can also create sections to group guides together:
 
 Happy writing!
 `);
-
-    let writer = new commonmark.HtmlRenderer();              
-    let result = writer.render(ast);      
-    domActiveGuide.innerHTML = result;
-
+    } else {
+      domActiveGuide.innerHTML = markdown(activeGuide.body);
+    }
+    domActiveGuide.classList.remove("hidden");
   }
 
   function renderApi() {
@@ -725,32 +531,32 @@ Happy writing!
     domApiSwitch.classList.add("active");
     domGuideSwitch.classList.remove("active");
     domGuidesSection.classList.add("hidden");
-    domSectNavAPI.classList.remove("hidden");
-    domSectNavGuides.classList.add("hidden");
     domDocs.classList.remove("hidden");
+    domApiMenu.classList.remove("hidden");
     domGuidesMenu.classList.add("hidden");
+
     domStatus.classList.add("hidden");
     domFnProto.classList.add("hidden");
     domSectParams.classList.add("hidden");
     domTldDocs.classList.add("hidden");
+    domSectMainMod.classList.add("hidden");
+    domSectMods.classList.add("hidden");
     domSectTypes.classList.add("hidden");
     domSectTests.classList.add("hidden");
     domSectDocTests.classList.add("hidden");
     domSectNamespaces.classList.add("hidden");
-    domListNamespacesLeft.classList.add("hidden");
-    domListNamespacesRight.classList.add("hidden");
-    domNoDocsNamespaces.classList.add("hidden");
     domSectErrSets.classList.add("hidden");
     domSectFns.classList.add("hidden");
     domSectFields.classList.add("hidden");
     domSectSearchResults.classList.add("hidden");
     domSectSearchAllResultsLink.classList.add("hidden");
     domSectSearchNoResults.classList.add("hidden");
+    domSectInfo.classList.add("hidden");
     domHdrName.classList.add("hidden");
+    domSectNav.classList.add("hidden");
     domSectFnErrors.classList.add("hidden");
     domFnExamples.classList.add("hidden");
     domFnNoExamples.classList.add("hidden");
-    domFnSourceLink.classList.add("hidden");
     domDeclNoRef.classList.add("hidden");
     domFnErrorsAnyError.classList.add("hidden");
     domTableFnErrors.classList.add("hidden");
@@ -758,6 +564,8 @@ Happy writing!
     domSectValues.classList.add("hidden");
 
     renderTitle();
+    renderInfo();
+    renderModList();
 
     if (curNavSearch !== "") {
       return renderSearchAPI();
@@ -905,7 +713,7 @@ Happy writing!
     let typeObj = getType(value.expr.type);
 
     domFnProtoCode.innerHTML = renderTokens(ex(value.expr, { fnDecl: fnDecl }));
-    domFnSourceLink.classList.remove("hidden");
+
     domFnSourceLink.innerHTML = "[<a target=\"_blank\" href=\"" + sourceFileLink(fnDecl) + "\">src</a>]";
 
     let docsSource = null;
@@ -1062,7 +870,7 @@ Happy writing!
 
   function renderNav() {
     let len = curNav.modNames.length + curNav.declNames.length;
-    resizeDomList(domListNavAPI, len, '<li><a href="#"></a></li>');
+    resizeDomList(domListNav, len, '<li><a href="#"></a></li>');
     let list = [];
     let hrefModNames = [];
     let hrefDeclNames = [];
@@ -1083,7 +891,7 @@ Happy writing!
     }
 
     for (let i = 0; i < list.length; i += 1) {
-      let liDom = domListNavAPI.children[i];
+      let liDom = domListNav.children[i];
       let aDom = liDom.children[0];
       aDom.textContent = list[i].name;
       aDom.setAttribute("href", list[i].link);
@@ -1094,60 +902,67 @@ Happy writing!
       }
     }
 
+    domSectNav.classList.remove("hidden");
   }
 
+  function renderInfo() {
+    domTdZigVer.textContent = zigAnalysis.params.zigVersion;
+    //domTdTarget.textContent = zigAnalysis.params.builds[0].target;
+
+    domSectInfo.classList.remove("hidden");
+  }
 
   function render404() {
     domStatus.textContent = "404 Not Found";
     domStatus.classList.remove("hidden");
   }
 
-  // function renderModList() {
-  //   const rootMod = zigAnalysis.modules[zigAnalysis.rootMod];
-  //   let list = [];
-  //   for (let key in rootMod.table) {
-  //     let modIndex = rootMod.table[key];
-  //     if (zigAnalysis.modules[modIndex] == null) continue;
-  //     if (key == rootMod.name) continue;
-  //     list.push({
-  //       name: key,
-  //       mod: modIndex,
-  //     });
-  //   }
+  function renderModList() {
+    const rootMod = zigAnalysis.modules[zigAnalysis.rootMod];
+    let list = [];
+    for (let key in rootMod.table) {
+      let modIndex = rootMod.table[key];
+      if (zigAnalysis.modules[modIndex] == null) continue;
+      if (key == rootMod.name) continue;
+      list.push({
+        name: key,
+        mod: modIndex,
+      });
+    }
 
-  //   {
-  //     let aDom = domSectMainMod.children[1].children[0].children[0];
-  //     aDom.textContent = rootMod.name;
-  //     aDom.setAttribute("href", navLinkMod(zigAnalysis.rootMod));
-  //     if (rootMod.name === curNav.modNames[0]) {
-  //       aDom.classList.add("active");
-  //     } else {
-  //       aDom.classList.remove("active");
-  //     }
-  //     domSectMainMod.classList.remove("hidden");
-  //   }
+    {
+      let aDom = domSectMainMod.children[1].children[0].children[0];
+      aDom.textContent = rootMod.name;
+      aDom.setAttribute("href", navLinkMod(zigAnalysis.rootMod));
+      if (rootMod.name === curNav.modNames[0]) {
+        aDom.classList.add("active");
+      } else {
+        aDom.classList.remove("active");
+      }
+      domSectMainMod.classList.remove("hidden");
+    }
 
-  //   list.sort(function (a, b) {
-  //     return operatorCompare(a.name.toLowerCase(), b.name.toLowerCase());
-  //   });
+    list.sort(function(a, b) {
+      return operatorCompare(a.name.toLowerCase(), b.name.toLowerCase());
+    });
 
-  //   if (list.length !== 0) {
-  //     resizeDomList(domListMods, list.length, '<li><a href="#"></a></li>');
-  //     for (let i = 0; i < list.length; i += 1) {
-  //       let liDom = domListMods.children[i];
-  //       let aDom = liDom.children[0];
-  //       aDom.textContent = list[i].name;
-  //       aDom.setAttribute("href", navLinkMod(list[i].mod));
-  //       if (list[i].name === curNav.modNames[0]) {
-  //         aDom.classList.add("active");
-  //       } else {
-  //         aDom.classList.remove("active");
-  //       }
-  //     }
+    if (list.length !== 0) {
+      resizeDomList(domListMods, list.length, '<li><a href="#"></a></li>');
+      for (let i = 0; i < list.length; i += 1) {
+        let liDom = domListMods.children[i];
+        let aDom = liDom.children[0];
+        aDom.textContent = list[i].name;
+        aDom.setAttribute("href", navLinkMod(list[i].mod));
+        if (list[i].name === curNav.modNames[0]) {
+          aDom.classList.add("active");
+        } else {
+          aDom.classList.remove("active");
+        }
+      }
 
-  //     domSectMods.classList.remove("hidden");
-  //   }
-  // }
+      domSectMods.classList.remove("hidden");
+    }
+  }
 
   function navLink(modNames, declNames, callName) {
     let base = curNav.mode;
@@ -1281,8 +1096,6 @@ Happy writing!
       result = `<span class="zig_special">${src}</span>`;
     } else if (t.tag == Tag.identifier && t.fnDecl) {
       result = `<span class="zig_fn">${src}</span>`;
-    } else if (t.tag == Tag.identifier && t.isDecl) {
-      result = `<span class="zig_decl_identifier">${src}</span>`;
     } else {
       result = `<span class="zig_${t.tag}">${src}</span>`;
     }
@@ -1330,16 +1143,16 @@ Happy writing!
         const name = getDecl(expr.declRef).name;
         const link = declLinkOrSrcLink(expr.declRef);
         if (link) {
-          yield { src: name, tag: Tag.identifier, isDecl: true, link };
+          yield { src: name, tag: Tag.identifier, link };
         } else {
-          yield { src: name, tag: Tag.identifier, isDecl: true };
+          yield { src: name, tag: Tag.identifier };
         }
         return;
       }
       case "refPath": {
         for (let i = 0; i < expr.refPath.length; i += 1) {
           if (i > 0) yield Tok.period;
-          yield* ex(expr.refPath[i], opts);
+          yield* ex(expr.refPath[i]);
         }
         return;
       }
@@ -1359,25 +1172,11 @@ Happy writing!
         yield { src: "false", tag: Tag.identifier };
         return;
       }
-
-      case "unreachable": {
-        yield { src: "unreachable", tag: Tag.identifier };
-        return;
-      }
-
       case "&": {
         yield { src: "&", tag: Tag.ampersand };
         yield* ex(zigAnalysis.exprs[expr["&"]], opts);
         return;
       }
-
-      case "load": {
-        yield* ex(zigAnalysis.exprs[expr.load], opts);
-        yield Tok.period;
-        yield Tok.asterisk;
-        return;
-      }
-
       case "call": {
 
         let call = zigAnalysis.calls[expr.call];
@@ -1421,17 +1220,9 @@ Happy writing!
       case "sizeOf": {
         const sizeOf = zigAnalysis.exprs[expr.sizeOf];
         yield { src: "@sizeOf", tag: Tag.builtin };
-        yield Tok.l_paren;
+        yield { src: "(", tag: Tag.l_paren };
         yield* ex(sizeOf, opts);
-        yield Tok.r_paren;
-        return;
-      }
-      case "bitSizeOf": {
-        const bitSizeOf = zigAnalysis.exprs[expr.bitSizeOf];
-        yield { src: "@bitSizeOf", tag: Tag.builtin };
-        yield Tok.l_paren;
-        yield* ex(bitSizeOf, opts);
-        yield Tok.r_paren;
+        yield { src: ")", tag: Tag.r_paren };
         return;
       }
 
@@ -1455,9 +1246,7 @@ Happy writing!
       }
 
       case "float": {
-        let float = expr.float;
-        if (Number.isSafeInteger(float)) float = float.toFixed(1);
-        yield { src: float, tag: Tag.number_literal };
+        yield { src: expr.float, tag: Tag.number_literal };
         return;
       }
 
@@ -1467,11 +1256,11 @@ Happy writing!
       }
 
       case "array": {
-        yield Tok.period;
+        yield { src: ".", tag: Tag.period };
         yield Tok.l_brace;
         for (let i = 0; i < expr.array.length; i++) {
           if (i != 0) {
-            yield Tok.comma;
+            yield { src: ",", tag: Tag.comma };
             yield Tok.space;
           }
           let elem = zigAnalysis.exprs[expr.array[i]];
@@ -1489,77 +1278,6 @@ Happy writing!
         return;
       }
 
-      case "optionalPayload": {
-        const opt = zigAnalysis.exprs[expr.optionalPayload];
-        yield* ex(opt, opts);
-        yield Tok.period;
-        yield Tok.question_mark;
-        return;
-      }
-
-      case "elemVal": {
-        const lhs = zigAnalysis.exprs[expr.elemVal.lhs];
-        const rhs = zigAnalysis.exprs[expr.elemVal.rhs];
-        yield* ex(lhs);
-        yield Tok.l_bracket;
-        yield* ex(rhs);
-        yield Tok.r_bracket;
-        return;
-      }
-      
-      case "sliceIndex": {
-        const slice = zigAnalysis.exprs[expr.sliceIndex];
-        yield* ex(slice, opts);
-        return;
-      }
-
-      case "slice": {
-        const slice = expr.slice;
-        const lhs = zigAnalysis.exprs[slice.lhs];
-        const start = zigAnalysis.exprs[slice.start];
-        yield* ex(lhs, opts);
-        yield Tok.l_bracket;
-        yield* ex(start, opts);
-        yield Tok.period;
-        yield Tok.period;
-        if (slice.end !== null) {
-          const end = zigAnalysis.exprs[slice.end];
-          yield* ex(end, opts);
-        }
-        if (slice.sentinel !== null) {
-          yield Tok.colon;
-          const sent = zigAnalysis.exprs[slice.sentinel];
-          yield* ex(sent, opts);
-        }
-        yield Tok.r_brace;
-        return;
-      }
-
-      case "sliceLength": {
-        const slice = expr.sliceLength;
-        const lhs = zigAnalysis.exprs[slice.lhs];
-        const start = zigAnalysis.exprs[slice.start];
-        const len = zigAnalysis.exprs[slice.len];
-        yield* ex(lhs, opts);
-        yield Tok.l_bracket;
-        yield* ex(start, opts);
-        yield Tok.period;
-        yield Tok.period;
-        yield Tok.r_bracket;
-        yield Tok.l_bracket;
-        yield { src: "0", tag: Tag.number_literal };
-        yield Tok.period;
-        yield Tok.period;
-        yield* ex(len, opts);
-        if (slice.sentinel !== null) {
-          yield Tok.colon;
-          const sent = zigAnalysis.exprs[slice.sentinel];
-          yield* ex(sent, opts);
-        }
-        yield Tok.r_brace;
-        return;
-      }
-
       case "string": {
         yield { src: '"' + expr.string + '"', tag: Tag.string_literal };
         return;
@@ -1568,13 +1286,12 @@ Happy writing!
       case "struct": {
         yield Tok.period;
         yield Tok.l_brace;
-        if (expr.struct.length > 0) yield Tok.space;
+        yield Tok.space;
 
         for (let i = 0; i < expr.struct.length; i++) {
           const fv = expr.struct[i];
           const field_name = fv.name;
-          const field_expr = zigAnalysis.exprs[fv.val.expr];
-          const field_value = ex(field_expr, opts);
+          const field_value = ex(fv.val.expr, opts);
           yield Tok.period;
           yield { src: field_name, tag: Tag.identifier };
           yield Tok.space;
@@ -1589,53 +1306,6 @@ Happy writing!
           }
         }
         yield Tok.r_brace;
-        return;
-      }
-
-      case "unOpIndex": {
-        const unOp = zigAnalysis.exprs[expr.unOpIndex];
-        yield* ex(unOp, opts);
-        return;
-      }
-
-      case "unOp": {
-        const param = zigAnalysis.exprs[expr.unOp.param];
-
-        switch (expr.unOp.name) {
-          case "bit_not": {
-            yield { src: "~", tag: Tag.tilde };
-            break;
-          }
-          case "bool_not": {
-            yield { src: "!", tag: Tag.bang };
-            break;
-          }
-          case "negate_wrap": {
-            yield { src: "-%", tag: Tag.minus_percent };
-            break;
-          }
-          case "negate": {
-            yield { src: "-", tag: Tag.minus };
-            break;
-          }
-          default:
-            throw "unOp: `" + expr.unOp.name + "` not implemented yet!"
-        }
-
-        if (param["binOpIndex"] !== undefined) {
-          yield Tok.l_paren;
-          yield* ex(param, opts);
-          yield Tok.r_paren;
-        } else {
-          yield* ex(param, opts);
-        }
-        return;
-      }
-        
-      case "fieldVal": {
-        const fv = expr.fieldVal;
-        const field_name = fv.name;
-        yield { src: field_name, tag: Tag.identifier };
         return;
       }
 
@@ -1698,10 +1368,6 @@ Happy writing!
           }
           case "div": {
             yield { src: "/", tag: Tag.slash };
-            break;
-          }
-          case "xor": {
-            yield { src: "^", tag: Tag.caret };
             break;
           }
           case "shl": {
@@ -1777,58 +1443,6 @@ Happy writing!
         } else {
           yield* ex(rhsOp, opts);
         }
-        return;
-      }
-
-      case "builtinIndex": {
-        const builtin = zigAnalysis.exprs[expr.builtinIndex];
-        yield* ex(builtin, opts);
-        return;
-      }
-
-      case "builtin": {
-        const builtin = expr.builtin;
-        let name = "@";
-        const param = zigAnalysis.exprs[builtin.param];
-        switch (builtin.name) {
-          case "align_of": { name += "alignOf"; break; }
-          case "int_from_bool": { name += "intFromBool"; break; }
-          case "embed_file": { name += "embedFile"; break; }
-          case "error_name": { name += "errorName"; break; }
-          case "panic": { name += "panic"; break; }
-          case "set_runtime_safety": { name += "setRuntimeSafety"; break; }
-          case "sqrt": { name += "sqrt"; break; }
-          case "sin": { name += "sin"; break; }
-          case "cos": { name += "cos"; break; }
-          case "tan": { name += "tan"; break; }
-          case "exp": { name += "exp"; break; }
-          case "exp2": { name += "exp2"; break; }
-          case "log": { name += "log"; break; }
-          case "log2": { name += "log2"; break; }
-          case "log10": { name += "log10"; break; }
-          case "fabs": { name += "fabs"; break; }
-          case "floor": { name += "floor"; break; }
-          case "ceil": { name += "ceil"; break; }
-          case "trunc": { name += "trunc"; break; }
-          case "round": { name += "round"; break; }
-          case "tag_name": { name += "tagName"; break; }
-          case "type_name": { name += "typeName"; break; }
-          case "type_info": { name += "typeInfo"; break; }
-          case "frame_type": { name += "Frame"; break; }
-          case "frame_size": { name += "frameSize"; break; }
-          case "int_from_ptr": { name += "intFromPtr"; break; }
-          case "int_from_enum": { name += "intFromEnum"; break; }
-          case "clz": { name += "clz"; break; }
-          case "ctz": { name += "ctz"; break; }
-          case "pop_count": { name += "popCount"; break; }
-          case "byte_swap": { name += "byteSwap"; break; }
-          case "bit_reverse": { name += "bitReverse"; break; }
-          default: throw "builtin: `" + builtin.name + "` not implemented yet!";
-        }
-        yield { src: name, tag: Tag.builtin };
-        yield Tok.l_paren;
-        yield* ex(param, opts);
-        yield Tok.r_paren;
         return;
       }
 
@@ -1970,113 +1584,6 @@ Happy writing!
         return;
       }
 
-      case "unionInit": {
-        let ui = expr.unionInit;
-        let type = zigAnalysis.exprs[ui.type];
-        let field = zigAnalysis.exprs[ui.field];
-        let init = zigAnalysis.exprs[ui.init];
-        yield { src: "@unionInit", tag: Tag.builtin };
-        yield Tok.l_paren;
-        yield* ex(type, opts);
-        yield Tok.comma;
-        yield Tok.space;
-        yield* ex(field, opts);
-        yield Tok.comma;
-        yield Tok.space;
-        yield* ex(init, opts);
-        yield Tok.r_paren;
-        return;
-      }
-
-      case "builtinCall": {
-        let bcall = expr.builtinCall;
-        let mods = zigAnalysis.exprs[bcall.modifier];
-        let calee = zigAnalysis.exprs[bcall.function];
-        let args = zigAnalysis.exprs[bcall.args];
-        yield { src: "@call", tag: Tag.builtin };
-        yield Tok.l_paren;
-        yield* ex(mods, opts);
-        yield Tok.comma;
-        yield Tok.space;
-        yield* ex(calee, opts);
-        yield Tok.comma;
-        yield Tok.space;
-        yield* ex(args, opts);
-        yield Tok.r_paren;
-        return;
-      }
-
-      case "mulAdd": {
-        let muladd = expr.mulAdd;
-        let mul1 = zigAnalysis.exprs[muladd.mulend1];
-        let mul2 = zigAnalysis.exprs[muladd.mulend2];
-        let add = zigAnalysis.exprs[muladd.addend];
-        let type = zigAnalysis.exprs[muladd.type];
-        yield { src: "@mulAdd", tag: Tag.builtin };
-        yield Tok.l_paren;
-        yield* ex(type, opts);
-        yield Tok.comma;
-        yield Tok.space;
-        yield* ex(mul1, opts);
-        yield Tok.comma;
-        yield Tok.space;
-        yield* ex(mul2, opts);
-        yield Tok.comma;
-        yield Tok.space;
-        yield* ex(add, opts);
-        yield Tok.r_paren;
-        return;
-      }
-
-      case "cmpxchgIndex": {
-        const cmpxchg = zigAnalysis.exprs[expr.cmpxchgIndex];
-        yield* ex(cmpxchg, opts);
-        return;
-      }
-
-      case "cmpxchg": {
-        const type = zigAnalysis.exprs[expr.cmpxchg.type];
-        const ptr = zigAnalysis.exprs[expr.cmpxchg.ptr];
-        const expectedValue = zigAnalysis.exprs[expr.cmpxchg.expected_value];
-        const newValue = zigAnalysis.exprs[expr.cmpxchg.new_value];
-        const successOrder = zigAnalysis.exprs[expr.cmpxchg.success_order];
-        const failureOrder = zigAnalysis.exprs[expr.cmpxchg.failure_order];
-
-        let fnName = "@";
-        switch (expr.cmpxchg.name) {
-          case "cmpxchg_strong": {
-            fnName += "cmpxchgStrong";
-            break;
-          }
-          case "cmpxchg_weak": {
-            fnName += "cmpxchgWeak";
-            break;
-          }
-          default:
-            throw "Unexpected cmpxchg name: `" + expr.cmpxchg.name + "`!";
-        }
-        yield { src: fnName, tag: Tag.builtin };
-        yield Tok.l_paren;
-        yield* ex(type, opts);
-        yield Tok.comma;
-        yield Tok.space;
-        yield* ex(ptr, opts);
-        yield Tok.comma;
-        yield Tok.space;
-        yield* ex(expectedValue, opts);
-        yield Tok.comma;
-        yield Tok.space;
-        yield* ex(newValue, opts);
-        yield Tok.comma;
-        yield Tok.space;
-        yield* ex(successOrder, opts);
-        yield Tok.comma;
-        yield Tok.space;
-        yield* ex(failureOrder, opts);
-        yield Tok.r_paren;
-        return;
-      }
-
       case "enumLiteral": {
         let literal = expr.enumLiteral;
         yield Tok.period;
@@ -2107,6 +1614,15 @@ Happy writing!
       case "this": {
         yield { src: "@This", tag: Tag.builtin };
         yield Tok.l_paren;
+        yield Tok.r_paren;
+        return;
+      }
+
+      case "typeInfo": {
+        const arg = zigAnalysis.exprs[expr.typeInfo];
+        yield { src: "@typeInfo", tag: Tag.builtin };
+        yield Tok.l_paren;
+        yield* ex(arg, opts);
         yield Tok.r_paren;
         return;
       }
@@ -2191,7 +1707,7 @@ Happy writing!
             return;
           }
           case typeKinds.Optional: {
-            yield Tok.question_mark;
+            yield { src: "?", tag: Tag.question_mark };
             yield* ex(typeObj.child, opts);
             return;
           }
@@ -2392,15 +1908,11 @@ Happy writing!
                 yield Tok.enter;
               }
             }
-            if (enumObj.nonexhaustive) {
-              for (let j = 0; j < indent; j += 1) yield Tok.tab;
-            
-              yield { src: "_", tag: Tag.identifier };
-            
-              if (fields_len > 1) {
-                yield Tok.comma;
-                yield Tok.enter;
-              }
+            for (let j = 0; j < indent; j += 1) yield Tok.tab;
+            yield { src: "_", tag: Tag.identifier };
+            if (fields_len > 1) {
+              yield Tok.comma;
+              yield Tok.enter;
             }
             if (opts.indent) {
               for (let j = 0; j < opts.indent; j += 1) yield Tok.tab;
@@ -2690,18 +2202,12 @@ Happy writing!
           }
         }
       }
-
       case "typeOf": {
         const typeRefArg = zigAnalysis.exprs[expr.typeOf];
         yield { src: "@TypeOf", tag: Tag.builtin };
         yield Tok.l_paren;
         yield* ex(typeRefArg, opts);
         yield Tok.r_paren;
-        return;
-      }
-
-      case "builtinField": {
-        yield { src: expr.builtinField, tag: Tag.identifier };
         return;
       }
     }
@@ -2877,10 +2383,6 @@ Happy writing!
       resolvedValue.expr.call !== undefined ||
       resolvedValue.expr.comptimeExpr !== undefined
     ) {
-      // TODO: we're using the resolved value but 
-      //       not keeping track of how we got there
-      //       that's important context that should
-      //       be shown to the user!
       domFnProtoCode.innerHTML = renderTokens(
         (function*() {
           yield Tok.const;
@@ -2894,7 +2396,7 @@ Happy writing!
           yield Tok.space;
           yield Tok.eql;
           yield Tok.space;
-          yield* ex(resolvedValue.expr, {});
+          yield* ex(decl.value.expr, {});
           yield Tok.semi;
         })());
     } else if (resolvedValue.expr.compileError) {
@@ -3023,8 +2525,7 @@ Happy writing!
   function categorizeDecls(
     decls,
     typesList,
-    namespacesWithDocsList,
-    namespacesNoDocsList,
+    namespacesList,
     errSetsList,
     fnsList,
     varsList,
@@ -3061,24 +2562,7 @@ Happy writing!
               if (typeIsErrSet(declValue.expr.type)) {
                 errSetsList.push(decl);
               } else if (typeIsStructWithNoFields(declValue.expr.type)) {
-              
-                let docs = getAstNode(decl.src).docs;
-                if (!docs) {
-                  // If this is a re-export, try to fetch docs from the actual definition
-                  const { value, seenDecls } = resolveValue(decl.value, true);  
-                  if (seenDecls.length > 0) {
-                    const definitionDecl = getDecl(seenDecls[seenDecls.length - 1]);
-                    docs = getAstNode(definitionDecl.src).docs;
-                  } else {
-                    docs = getAstNode(getType(value.expr.type).src).docs;
-                  }
-                }
-                
-                if (docs) {
-                  namespacesWithDocsList.push({decl, docs});
-                } else {
-                  namespacesNoDocsList.push(decl);
-                }
+                namespacesList.push(decl);
               } else {
                 typesList.push(decl);
               }
@@ -3089,22 +2573,7 @@ Happy writing!
             if (typeIsErrSet(declValue.expr.type)) {
               errSetsList.push(decl);
             } else if (typeIsStructWithNoFields(declValue.expr.type)) {
-              let docs = getAstNode(decl.src).docs;
-              if (!docs) {
-                // If this is a re-export, try to fetch docs from the actual definition
-                const { value, seenDecls } = resolveValue(decl.value, true);  
-                if (seenDecls.length > 0) {
-                  const definitionDecl = getDecl(seenDecls[seenDecls.length - 1]);
-                  docs = getAstNode(definitionDecl.src).docs;
-                } else {
-                  docs = getAstNode(getType(value.expr.type).src).docs;
-                }
-              }
-              if (docs) {
-                namespacesWithDocsList.push({decl, docs});
-              } else {
-                namespacesNoDocsList.push(decl);
-              }
+              namespacesList.push(decl);
             } else {
               typesList.push(decl);
             }
@@ -3139,8 +2608,7 @@ Happy writing!
   function renderContainer(container) {
     let typesList = [];
 
-    let namespacesWithDocsList = [];
-    let namespacesNoDocsList = [];
+    let namespacesList = [];
 
     let errSetsList = [];
 
@@ -3157,8 +2625,7 @@ Happy writing!
     categorizeDecls(
       container.pubDecls,
       typesList,
-      namespacesWithDocsList,
-      namespacesNoDocsList,
+      namespacesList,
       errSetsList,
       fnsList,
       varsList,
@@ -3170,8 +2637,7 @@ Happy writing!
       categorizeDecls(
         container.privDecls,
         typesList,
-        namespacesWithDocsList,
-        namespacesNoDocsList,
+        namespacesList,
         errSetsList,
         fnsList,
         varsList,
@@ -3189,8 +2655,7 @@ Happy writing!
       categorizeDecls(
         uns_container.pubDecls,
         typesList,
-        namespacesWithDocsList,
-        namespacesNoDocsList,
+        namespacesList,
         errSetsList,
         fnsList,
         varsList,
@@ -3202,8 +2667,7 @@ Happy writing!
         categorizeDecls(
           uns_container.privDecls,
           typesList,
-          namespacesWithDocsList,
-          namespacesNoDocsList,
+          namespacesList,
           errSetsList,
           fnsList,
           varsList,
@@ -3214,8 +2678,7 @@ Happy writing!
     }
 
     typesList.sort(byNameProperty);
-    namespacesWithDocsList.sort(byNameProperty);
-    namespacesNoDocsList.sort(byNameProperty);
+    namespacesList.sort(byNameProperty);
     errSetsList.sort(byNameProperty);
     fnsList.sort(byNameProperty);
     varsList.sort(byNameProperty);
@@ -3231,105 +2694,35 @@ Happy writing!
     }
 
     if (typesList.length !== 0) {
-      const splitPoint = Math.ceil(typesList.length / 2);
-      const template = '<li><a href="#"></a><div></div></li>';
-      resizeDomList(domListTypesLeft, splitPoint, template);
-      resizeDomList(domListTypesRight, typesList.length - splitPoint, template);
-
-      let activeList = domListTypesLeft;
-      let offset = 0;
+      resizeDomList(
+        domListTypes,
+        typesList.length,
+        '<li><a href=""></a></li>'
+      );
       for (let i = 0; i < typesList.length; i += 1) {
-        let liDom = activeList.children[i - offset];
+        let liDom = domListTypes.children[i];
         let aDom = liDom.children[0];
         let decl = typesList[i];
         aDom.textContent = decl.name;
         aDom.setAttribute("href", navLinkDecl(decl.name));
-        
-        let descDom = liDom.children[1];
-        let docs = getAstNode(decl.src).docs;
-        if (!docs) {
-          // If this is a re-export, try to fetch docs from the actual definition
-            const { value, seenDecls } = resolveValue(decl.value, true);  
-            if (seenDecls.length > 0) {
-              const definitionDecl = getDecl(seenDecls[seenDecls.length - 1]);
-              docs = getAstNode(definitionDecl.src).docs;
-            } else {
-              const type = getType(value.expr.type);
-              if ("src" in type) {
-                docs = getAstNode(type.src).docs;
-              }
-            }
-        }
-        
-        if (docs) {
-          descDom.innerHTML = markdown(shortDesc(docs));
-        } else {
-          descDom.innerHTML = "<p class='understated'><i>No documentation provided.</i></p>";
-        }
-        if (i == splitPoint - 1) {
-          activeList = domListTypesRight;
-          offset = splitPoint;
-        }
       }
       domSectTypes.classList.remove("hidden");
     }
-    
-    if (namespacesWithDocsList.length !== 0) {
-      const splitPoint = Math.ceil(namespacesWithDocsList.length / 2);
-      const template = '<li><a href="#"></a><div></div></li>';
-      resizeDomList(domListNamespacesLeft, splitPoint, template);
-      resizeDomList(domListNamespacesRight, 
-        namespacesWithDocsList.length - splitPoint, 
-        template);
-
-      let activeList = domListNamespacesLeft;
-      let offset = 0;
-      for (let i = 0; i < namespacesWithDocsList.length; i += 1) {
-        let liDom = activeList.children[i - offset];
-        let aDom = liDom.children[0];
-        let { decl, docs } = namespacesWithDocsList[i];
-        aDom.textContent = decl.name;
-        aDom.setAttribute("href", navLinkDecl(decl.name));
-
-        
-        let descDom = liDom.children[1];
-        descDom.innerHTML = markdown(shortDesc(docs));
-        if (i == splitPoint - 1) {
-          activeList = domListNamespacesRight;
-          offset = splitPoint;
-        }
-      }
-
-      domListNamespacesLeft.classList.remove("hidden");
-      domListNamespacesRight.classList.remove("hidden");
-      domSectNamespaces.classList.remove("hidden");
-    }
-
-    if (namespacesNoDocsList.length !== 0) {
+    if (namespacesList.length !== 0) {
       resizeDomList(
-        domNoDocsNamespaces,
-        namespacesNoDocsList.length,
-        '<span><a href="#"></a><span></span></span>'
+        domListNamespaces,
+        namespacesList.length,
+        '<li><a href="#"></a></li>'
       );
-      for (let i = 0; i < namespacesNoDocsList.length; i += 1) {
-        let aDom = domNoDocsNamespaces.children[i].children[0];
-        let decl = namespacesNoDocsList[i];
+      for (let i = 0; i < namespacesList.length; i += 1) {
+        let liDom = domListNamespaces.children[i];
+        let aDom = liDom.children[0];
+        let decl = namespacesList[i];
         aDom.textContent = decl.name;
         aDom.setAttribute("href", navLinkDecl(decl.name));
-        let comma = domNoDocsNamespaces.children[i].children[1];
-        if (i == namespacesNoDocsList.length - 1) {
-          comma.textContent = "";
-        } else {
-          comma.textContent = ", ";
-        }
       }
-
-      domNoDocsNamespaces.classList.remove("hidden");
       domSectNamespaces.classList.remove("hidden");
     }
-
-
-    
 
     if (errSetsList.length !== 0) {
       resizeDomList(
@@ -3385,7 +2778,7 @@ Happy writing!
             tdDesc.innerHTML = markdown(short, container);
           }
         } else {
-          tdDesc.innerHTML = "<p class='understated'><i>No documentation provided.</i><p>";
+          tdDesc.innerHTML = "<p><i>No documentation provided.</i><p>";
         }
       }
       domSectFns.classList.remove("hidden");
@@ -3546,13 +2939,6 @@ Happy writing!
       }
       domSectTests.classList.remove("hidden");
     }
-
-    if (container.kind !== typeKinds.Struct || containerNode.fields.length > 0) {
-      domHdrName.innerHTML = "<pre class='inline'>" +
-        zigAnalysis.typeKinds[container.kind] +
-        "</pre>";
-      domHdrName.classList.remove("hidden");
-    }
   }
 
   function operatorCompare(a, b) {
@@ -3627,15 +3013,12 @@ Happy writing!
 
   function updateCurNav() {
     curNav = {
-      hash: location.hash,
       mode: NAV_MODES.API,
       modNames: [],
       modObjs: [],
       declNames: [],
       declObjs: [],
       callName: null,
-      activeGuide: null,
-      activeGuideScrollTo: null,
     };
     curNavSearch = "";
 
@@ -3656,7 +3039,7 @@ Happy writing!
       case NAV_MODES.API:
         // #A;MODULE:decl.decl.decl?search-term
         curNav.mode = mode;
-        {
+
         let parts = nonSearchPart.split(":");
         if (parts[0] == "") {
           location.hash = DEFAULT_HASH;
@@ -3667,18 +3050,22 @@ Happy writing!
         if (parts[1] != null) {
           curNav.declNames = decodeURIComponent(parts[1]).split(".");
         }
-        }
+
         return;
       case NAV_MODES.GUIDES:
-        curNav.mode = mode;
 
-        {
-          let parts = nonSearchPart.split(":");
-          curNav.activeGuide = parts[0];
-          if (parts[1] != null) {
-            curNav.activeGuideScrollTo = decodeURIComponent(":" + parts[1]);
+        const sections = zigAnalysis.guide_sections;
+        if (sections.length != 0 && sections[0].guides.length != 0 && nonSearchPart == "") {
+          location.hash = NAV_MODES.GUIDES + sections[0].guides[0].name;
+          if (qpos != -1) {
+            location.hash += query.substring(qpos);
           }
+          return;
         }
+
+        curNav.mode = mode;
+        curNav.activeGuide = nonSearchPart;
+
         return;
       default:
         location.hash = DEFAULT_HASH;
@@ -3686,18 +3073,8 @@ Happy writing!
     }
   }
 
-  function onHashChange(ev) {
-    scrollHistory[curNav.hash] = scrollMonitor.map(function (x) {
-      return [x, x.scrollTop]
-    });
-    
-    if (skipNextHashChange == decodeURIComponent(location.hash)) {
-      skipNextHashChange = null;
-      return;
-    }
-    skipNextHashChange = null;
+  function onHashChange() {
     updateCurNav();
-
     if (domSearch.value !== curNavSearch) {
       domSearch.value = curNavSearch;
       if (domSearch.value.length == 0)
@@ -3709,22 +3086,6 @@ Happy writing!
     if (imFeelingLucky) {
       imFeelingLucky = false;
       activateSelectedResult();
-    }
-
-    scroll();
-  }
-
-  function scroll() {
-    const cur = scrollHistory[location.hash];
-    if (cur) {
-      for (let [elem, offset] of cur) {
-        elem.scrollTo(0, offset);
-      }
-    } else {
-      if (curNav.activeGuideScrollTo) return;
-      for (let elem of scrollMonitor) {
-        elem.scrollTo(0, 0);
-      }
     }
   }
 
@@ -4023,9 +3384,9 @@ Happy writing!
     let index = trimmed_docs.indexOf("\n\n");
     let cut = false;
 
-    if (index < 0 || index > 130) {
-      if (trimmed_docs.length > 130) {
-        index = 130;
+    if (index < 0 || index > 80) {
+      if (trimmed_docs.length > 80) {
+        index = 80;
         cut = true;
       } else {
         index = trimmed_docs.length;
@@ -4042,123 +3403,36 @@ Happy writing!
   }
 
   function parseGuides() {
-    for (let j = 0; j < zigAnalysis.guideSections.length; j += 1) {
-      const section = zigAnalysis.guideSections[j];
+    for (let j = 0; j < zigAnalysis.guide_sections.length; j += 1) {
+      const section = zigAnalysis.guide_sections[j];
       for (let i = 0; i < section.guides.length; i += 1) {
         let reader = new commonmark.Parser({ smart: true });
         const guide = section.guides[i];
+        const ast = reader.parse(guide.body);
 
         // Find the first text thing to use as a sidebar title
-        guide.title = null;
-        guide.toc = "";
-
-        // Discover Title & TOC for this guide
+        guide.title = "[empty guide]";
         {
-          let reader = new commonmark.Parser({smart: true});
-          let ast = reader.parse(guide.body);        
           let walker = ast.walker();
-          let heading_idx = 0;
-          let event, node, doc, last, last_ul;
+          let event, node;
           while ((event = walker.next())) {
             node = event.node;
-            if (event.entering) {
-              if (node.type === 'document')  {
-                doc = node;
-                continue;
-              }
-
-              
-              if (node.next) {
-                walker.resumeAt(node.next, true);
-              } else {
-                walker.resumeAt(node, false);
-              }
-              node.unlink();
-              
-              if (node.type === 'heading') {
-                if (node.level == 1) {
-                  if (guide.title == null) {
-                    let doc_node = new commonmark.Node("document", node.sourcepos);
-                    while (node.firstChild) {
-                      doc_node.appendChild(node.firstChild);
-                    }                    
-                    let writer = new commonmark.HtmlRenderer();              
-                    let result = writer.render(doc_node);      
-                    guide.title = result;
-                  }
-                  
-                  continue; // don't index H1
-                }
-
-                // turn heading node into list item & add link node to it
-                {
-                  node._type = "link";
-                  node.destination = NAV_MODES.GUIDES + guide.name + ":" + heading_idx;
-                  heading_idx += 1;
-                  let listItem = new commonmark.Node("item", node.sourcepos);
-                  // TODO: strip links from inside node
-                  listItem.appendChild(node);
-                  listItem.level = node.level;
-                  node = listItem;
-                }
-                
-                if (last_ul) {
-                  // are we inside or outside of it?
-
-                  let target_ul = last_ul;
-                  while(target_ul.level > node.level) {
-                    target_ul = target_ul.parent;
-                  } 
-                  while(target_ul.level < node.level) {
-                    let ul_node = new commonmark.Node("list", node.sourcepos);
-                    ul_node.level = target_ul.level + 1;
-                    ul_node.listType = "bullet";
-                    ul_node.listStart = null;
-                    target_ul.appendChild(ul_node);
-                    target_ul = ul_node;
-                  }
-
-                  target_ul.appendChild(node);
-                  last_ul = target_ul;
-                } else {
-                  let ul_node = new commonmark.Node("list", node.sourcepos);
-                  ul_node.level = 2;
-                  ul_node.listType = "bullet";
-                  ul_node.listStart = null;
-                  doc.prependChild(ul_node);
-            
-                  while (ul_node.level < node.level) {
-                    let current_ul_node = new commonmark.Node("list", node.sourcepos);
-                    current_ul_node.level = ul_node.level + 1;
-                    current_ul_node.listType = "bullet";
-                    current_ul_node.listStart = null;
-                    ul_node.appendChild(current_ul_node);
-                    ul_node = current_ul_node;
-                  }
-
-                  last_ul = ul_node;
-
-                  ul_node.appendChild(node);
+            if (node.type === 'text') {
+              guide.title = node.literal;
+              break;
             }
           }
         }
-          }        
-          
-          let writer = new commonmark.HtmlRenderer();              
-          let result = writer.render(ast);      
-          guide.toc = result;
-        }
-        
         // Index this guide
         {
-          // let walker = guide.ast.walker();
-          // let event, node;
-          // while ((event = walker.next())) {
-          //   node = event.node;
-          //   if (event.entering == true && node.type === 'text') {
-          //       indexTextForGuide(j, i, node);          
-          //   }
-          // }        
+          let walker = ast.walker();
+          let event, node;
+          while ((event = walker.next())) {
+            node = event.node;
+            if (event.entering == true && node.type === 'text') {
+              indexTextForGuide(j, i, node);
+            }
+          }
         }
       }
     }
@@ -4200,80 +3474,79 @@ Happy writing!
 
 
 
-  // function detectDeclPath(text, context) {
-  //   let result = "";
-  //   let separator = ":";
-  //   const components = text.split(".");
-  //   let curDeclOrType = undefined;
+  function detectDeclPath(text, context) {
+    let result = "";
+    let separator = ":";
+    const components = text.split(".");
+    let curDeclOrType = undefined;
 
-  //   let curContext = context;
-  //   let limit = 10000;
-  //   while (curContext) {
-  //     limit -= 1;
+    let curContext = context;
+    let limit = 10000;
+    while (curContext) {
+      limit -= 1;
 
-  //     if (limit == 0) {
-  //       throw "too many iterations";
-  //     }
+      if (limit == 0) {
+        throw "too many iterations";
+      }
 
-  //     curDeclOrType = findSubDecl(curContext, components[0]);
+      curDeclOrType = findSubDecl(curContext, components[0]);
 
-  //     if (!curDeclOrType) {
-  //       if (curContext.parent_container == null) break;
-  //       curContext = getType(curContext.parent_container);
-  //       continue;
-  //     }
+      if (!curDeclOrType) {
+        if (curContext.parent_container == null) break;
+        curContext = getType(curContext.parent_container);
+        continue;
+      }
 
-  //     if (curContext == context) {
-  //       separator = '.';
-  //       result = location.hash + separator + components[0];
-  //     } else {
-  //       // We had to go up, which means we need a new path!
-  //       const canonPath = getCanonDeclPath(curDeclOrType.find_subdecl_idx);
-  //       if (!canonPath) return;
+      if (curContext == context) {
+        separator = '.';
+        result = location.hash + separator + components[0];
+      } else {
+        // We had to go up, which means we need a new path!
+        const canonPath = getCanonDeclPath(curDeclOrType.find_subdecl_idx);
+        if (!canonPath) return;
 
-  //       let lastModName = canonPath.modNames[canonPath.modNames.length - 1];
-  //       let fullPath = lastModName + ":" + canonPath.declNames.join(".");
+        let lastModName = canonPath.modNames[canonPath.modNames.length - 1];
+        let fullPath = lastModName + ":" + canonPath.declNames.join(".");
 
-  //       separator = '.';
-  //       result = "#A;" + fullPath;
-  //     }
+        separator = '.';
+        result = "#A;" + fullPath;
+      }
 
-  //     break;
-  //   }
+      break;
+    }
 
-  //   if (!curDeclOrType) {
-  //     for (let i = 0; i < zigAnalysis.modules.length; i += 1) {
-  //       const p = zigAnalysis.modules[i];
-  //       if (p.name == components[0]) {
-  //         curDeclOrType = getType(p.main);
-  //         result += "#A;" + components[0];
-  //         break;
-  //       }
-  //     }
-  //   }
+    if (!curDeclOrType) {
+      for (let i = 0; i < zigAnalysis.modules.length; i += 1) {
+        const p = zigAnalysis.modules[i];
+        if (p.name == components[0]) {
+          curDeclOrType = getType(p.main);
+          result += "#A;" + components[0];
+          break;
+        }
+      }
+    }
 
-  //   if (!curDeclOrType) return null;
+    if (!curDeclOrType) return null;
 
-  //   for (let i = 1; i < components.length; i += 1) {
-  //     curDeclOrType = findSubDecl(curDeclOrType, components[i]);
-  //     if (!curDeclOrType) return null;
-  //     result += separator + components[i];
-  //     separator = '.';
-  //   }
+    for (let i = 1; i < components.length; i += 1) {
+      curDeclOrType = findSubDecl(curDeclOrType, components[i]);
+      if (!curDeclOrType) return null;
+      result += separator + components[i];
+      separator = '.';
+    }
 
-  //   return result;
+    return result;
 
-  // }
+  }
 
   function activateSelectedResult() {
     if (domSectSearchResults.classList.contains("hidden")) {
       return;
     }
 
-    const searchResults = domListSearchResults.getElementsByTagName("li");
-    let liDom = searchResults[curSearchIndex];
-    if (liDom == null && searchResults.length !== 0) {
-      liDom = searchResults[0];
+    let liDom = domListSearchResults.children[curSearchIndex];
+    if (liDom == null && domListSearchResults.children.length !== 0) {
+      liDom = domListSearchResults.children[0];
     }
     if (liDom != null) {
       let aDom = liDom.children[0];
@@ -4345,10 +3618,9 @@ Happy writing!
   function onSearchInput(ev) {
     curSearchIndex = -1;
   
-    let replaced = domSearch.value.replaceAll(".", " ")
-
-    // Ping red the help text if the user typed a dot.
+    let replaced = domSearch.value.replaceAll(".", " ");
     if (replaced != domSearch.value) {
+      domSearch.value = replaced;
       domSearchHelpSummary.classList.remove("normal");
       if (domDotsToggleTimeout != null) {
         clearTimeout(domDotsToggleTimeout);
@@ -4357,26 +3629,19 @@ Happy writing!
       domDotsToggleTimeout = setTimeout(function () { 
         domSearchHelpSummary.classList.add("normal"); 
       }, 1000);
-    }
-    
-    replaced = replaced.replace(/  +/g, ' ');
-    if (replaced != domSearch.value) {
-      domSearch.value = replaced;
     } 
-    
     startAsyncSearch();
   }
 
   function moveSearchCursor(dir) {
-    const searchResults = domListSearchResults.getElementsByTagName("li");
     if (
       curSearchIndex < 0 ||
-      curSearchIndex >= searchResults.length
+      curSearchIndex >= domListSearchResults.children.length
     ) {
       if (dir > 0) {
         curSearchIndex = -1 + dir;
       } else if (dir < 0) {
-        curSearchIndex = searchResults.length + dir;
+        curSearchIndex = domListSearchResults.children.length + dir;
       }
     } else {
       curSearchIndex += dir;
@@ -4384,8 +3649,8 @@ Happy writing!
     if (curSearchIndex < 0) {
       curSearchIndex = 0;
     }
-    if (curSearchIndex >= searchResults.length) {
-      curSearchIndex = searchResults.length - 1;
+    if (curSearchIndex >= domListSearchResults.children.length) {
+      curSearchIndex = domListSearchResults.children.length - 1;
     }
     renderSearchCursor();
   }
@@ -4567,9 +3832,6 @@ Happy writing!
   }
 
   function renderSearchAPI() {
-    domSectSearchResults.prepend(
-      domSearchHelp.parentElement.removeChild(domSearchHelp)
-    );
     if (canonDeclPaths == null) {
       canonDeclPaths = computeCanonDeclPaths();
     }
@@ -4583,11 +3845,7 @@ Happy writing!
       let term = term_list[i];
       let result = declSearchIndex.search(term.toLowerCase());
       if (result == null) {
-        domSectSearchNoResults.prepend(
-          domSearchHelp.parentElement.removeChild(domSearchHelp)
-        );
         domSectSearchNoResults.classList.remove("hidden");
-        
         domSectSearchResults.classList.add("hidden");
         return;
       }
@@ -4724,9 +3982,8 @@ Happy writing!
   
 
   function renderSearchCursor() {
-    const searchResults = domListSearchResults.getElementsByTagName("li");
-    for (let i = 0; i < searchResults.length; i += 1) {
-      let liDom = searchResults[i];
+    for (let i = 0; i < domListSearchResults.children.length; i += 1) {
+      let liDom = domListSearchResults.children[i];
       if (curSearchIndex === i) {
         liDom.classList.add("selected");
       } else {
@@ -4735,27 +3992,6 @@ Happy writing!
     }
   }
 
-  function scrollGuidesTop(ev) {
-      document.getElementById("activeGuide").children[0].scrollIntoView({
-        behavior: "smooth",
-      }); 
-      ev.preventDefault();
-      ev.stopPropagation();
-  }
-  document.scrollGuidesTop = scrollGuidesTop;
-
-  function scrollToHeading(id, alreadyThere) {  
-    // Don't scroll if the current location has a scrolling history.
-    if (scrollHistory[location.hash]) return;
-
-    const c = document.getElementById(id);
-    if (c && alreadyThere) {
-      requestAnimationFrame(() => c.scrollIntoView({behavior: "smooth"}));    
-          } else {
-            requestAnimationFrame(() => c.scrollIntoView());    
-          }
-          return;
-        }
   // function indexNodesToCalls() {
   //     let map = {};
   //     for (let i = 0; i < zigAnalysis.calls.length; i += 1) {
@@ -4815,16 +4051,16 @@ Happy writing!
     switch (ty[0]) {
       default:
         throw "unhandled type kind!";
-      case typeKinds.Unanalyzed:
+      case 0: // Unanalyzed
         throw "unanalyzed type!";
-      case typeKinds.Type:
-      case typeKinds.Void:
-      case typeKinds.Bool:
-      case typeKinds.NoReturn:
-      case typeKinds.Int:
-      case typeKinds.Float:
+      case 1: // Type
+      case 2: // Void 
+      case 3: //  Bool
+      case 4: //  NoReturn
+      case 5: //  Int
+      case 6: //  Float
         return { kind: ty[0], name: ty[1] };
-      case typeKinds.Pointer:
+      case 7: // Pointer
         return {
           kind: ty[0],
           size: ty[1],
@@ -4843,14 +4079,14 @@ Happy writing!
           has_addrspace: ty[14],
           has_bit_range: ty[15],
         };
-      case typeKinds.Array:
+      case 8: // Array
         return {
           kind: ty[0],
           len: ty[1],
           child: ty[2],
           sentinel: ty[3],
         };
-      case typeKinds.Struct:
+      case 9: // Struct
         return {
           kind: ty[0],
           name: ty[1],
@@ -4865,36 +4101,36 @@ Happy writing!
           parent_container: ty[10],
           layout: ty[11],
         };
-      case typeKinds.ComptimeExpr:
-      case typeKinds.ComptimeFloat:
-      case typeKinds.ComptimeInt:
-      case typeKinds.Undefined:
-      case typeKinds.Null:
+      case 10: // ComptimeExpr
+      case 11: // ComptimeFloat
+      case 12: // ComptimeInt
+      case 13: // Undefined
+      case 14: // Null
         return { kind: ty[0], name: ty[1] };
-      case typeKinds.Optional:
+      case 15: // Optional
         return {
           kind: ty[0],
           name: ty[1],
           child: ty[2],
         };
-      case typeKinds.ErrorUnion:
+      case 16: // ErrorUnion
         return {
           kind: ty[0],
           lhs: ty[1],
           rhs: ty[2],
         };
-      case typeKinds.InferredErrorUnion:
+      case 17: // InferredErrorUnion
         return {
           kind: ty[0],
           payload: ty[1],
         };
-      case typeKinds.ErrorSet:
+      case 18: // ErrorSet
         return {
           kind: ty[0],
           name: ty[1],
           fields: ty[2],
         };
-      case typeKinds.Enum:
+      case 19: // Enum
         return {
           kind: ty[0],
           name: ty[1],
@@ -4906,7 +4142,7 @@ Happy writing!
           nonexhaustive: ty[7],
           parent_container: ty[8],
         };
-      case typeKinds.Union:
+      case 20: // Union
         return {
           kind: ty[0],
           name: ty[1],
@@ -4919,7 +4155,7 @@ Happy writing!
           parent_container: ty[8],
           layout: ty[9],
         };
-      case typeKinds.Fn:
+      case 21: // Fn
         return {
           kind: ty[0],
           name: ty[1],
@@ -4938,7 +4174,9 @@ Happy writing!
           is_test: ty[14],
           is_extern: ty[15],
         };
-      case typeKinds.Opaque:
+      case 22: // BoundFn
+        return { kind: ty[0], name: ty[1] };
+      case 23: // Opaque
         return {
           kind: ty[0],
           name: ty[1],
@@ -4947,10 +4185,10 @@ Happy writing!
           pubDecls: ty[4],
           parent_container: ty[5],
         };
-      case typeKinds.Frame:
-      case typeKinds.AnyFrame:
-      case typeKinds.Vector:
-      case typeKinds.EnumLiteral:
+      case 24: // Frame
+      case 25: // AnyFrame
+      case 26: // Vector
+      case 27: // EnumLiteral
         return { kind: ty[0], name: ty[1] };
     }
   }
@@ -4994,7 +4232,7 @@ Happy writing!
     domPrefSlashSearch.checked = enabled;
     const searchKeys = enabled ? "<kbd>/</kbd> or <kbd>s</kbd>" : "<kbd>s</kbd>";
     domSearchKeys.innerHTML = searchKeys;
-    domSearchPlaceholderText.innerHTML = searchKeys + " to search, <kbd>?</kbd> for more options";
+    domSearchPlaceholder.innerHTML = searchKeys + " to search, <kbd>?</kbd> for more options";
   }
 })();
 
@@ -5233,10 +4471,5 @@ function RadixTree() {
       }
     }
   }
-}
-
-
-function slugify(str) {
-  return str.toLowerCase().trim().replace(/[^\w\s-]/g, '').replace(/[\s_-]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
