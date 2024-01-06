@@ -268,163 +268,191 @@
 <span class="line" id="L154">        <span class="tok-kw">var</span> p995_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
 <span class="line" id="L155">        <span class="tok-kw">const</span> p995_str = <span class="tok-kw">try</span> format.duration(p995_buffer[<span class="tok-number">0</span>..], percentiles.p995);</span>
 <span class="line" id="L156"></span>
-<span class="line" id="L157">        <span class="tok-kw">var</span> avg_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
-<span class="line" id="L158">        <span class="tok-kw">const</span> avg_str = <span class="tok-kw">try</span> format.duration(avg_buffer[<span class="tok-number">0</span>..], self.calculateAverage());</span>
-<span class="line" id="L159"></span>
-<span class="line" id="L160">        <span class="tok-kw">var</span> min_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
-<span class="line" id="L161">        <span class="tok-kw">const</span> min_str = <span class="tok-kw">try</span> format.duration(min_buffer[<span class="tok-number">0</span>..], self.minDuration);</span>
+<span class="line" id="L157">        <span class="tok-kw">var</span> avg_std_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L158">        <span class="tok-kw">var</span> avg_std_offset = (<span class="tok-kw">try</span> format.duration(avg_std_buffer[<span class="tok-number">0</span>..], self.calculateAverage())).len;</span>
+<span class="line" id="L159">        avg_std_offset += (<span class="tok-kw">try</span> std.fmt.bufPrint(avg_std_buffer[avg_std_offset..], <span class="tok-str">&quot; ± &quot;</span>, .{})).len;</span>
+<span class="line" id="L160">        avg_std_offset += (<span class="tok-kw">try</span> format.duration(avg_std_buffer[avg_std_offset..], self.calculateStd())).len;</span>
+<span class="line" id="L161">        <span class="tok-kw">const</span> avg_std_str = avg_std_buffer[<span class="tok-number">0</span>..avg_std_offset];</span>
 <span class="line" id="L162"></span>
-<span class="line" id="L163">        <span class="tok-kw">var</span> max_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
-<span class="line" id="L164">        <span class="tok-kw">const</span> max_str = <span class="tok-kw">try</span> format.duration(max_buffer[<span class="tok-number">0</span>..], self.maxDuration);</span>
+<span class="line" id="L163">        <span class="tok-kw">var</span> min_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L164">        <span class="tok-kw">const</span> min_str = <span class="tok-kw">try</span> format.duration(min_buffer[<span class="tok-number">0</span>..], self.minDuration);</span>
 <span class="line" id="L165"></span>
-<span class="line" id="L166">        std.debug.print(<span class="tok-str">&quot;{s:&lt;20} {s:&lt;12} {s:&lt;20} {s:&lt;10} {s:&lt;10} {s:&lt;10}\n&quot;</span>, .{ <span class="tok-str">&quot;benchmark&quot;</span>, <span class="tok-str">&quot;time (avg)&quot;</span>, <span class="tok-str">&quot;(min ... max)&quot;</span>, <span class="tok-str">&quot;p75&quot;</span>, <span class="tok-str">&quot;p99&quot;</span>, <span class="tok-str">&quot;p995&quot;</span> });</span>
-<span class="line" id="L167">        std.debug.print(<span class="tok-str">&quot;--------------------------------------------------------------------------------------\n&quot;</span>, .{});</span>
-<span class="line" id="L168">        std.debug.print(<span class="tok-str">&quot;{s:&lt;20} \x1b[33m{s:&lt;12}\x1b[0m (\x1b[94m{s}\x1b[0m ... \x1b[95m{s}\x1b[0m) \x1b[90m{s:&lt;10}\x1b[0m \x1b[90m{s:&lt;10}\x1b[0m \x1b[90m{s:&lt;10}\x1b[0m\n&quot;</span>, .{ self.name, avg_str, min_str, max_str, p75_str, p99_str, p995_str });</span>
-<span class="line" id="L169">    }</span>
-<span class="line" id="L170"></span>
-<span class="line" id="L171">    <span class="tok-comment">/// Calculate the average duration</span></span>
-<span class="line" id="L172">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">calculateAverage</span>(self: Benchmark) <span class="tok-type">u64</span> {</span>
-<span class="line" id="L173">        <span class="tok-comment">// prevent division by zero</span>
-</span>
-<span class="line" id="L174">        <span class="tok-kw">const</span> len = self.durations.items.len;</span>
-<span class="line" id="L175">        <span class="tok-kw">if</span> (len == <span class="tok-number">0</span>) <span class="tok-kw">return</span> <span class="tok-number">0</span>;</span>
+<span class="line" id="L166">        <span class="tok-kw">var</span> max_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L167">        <span class="tok-kw">const</span> max_str = <span class="tok-kw">try</span> format.duration(max_buffer[<span class="tok-number">0</span>..], self.maxDuration);</span>
+<span class="line" id="L168"></span>
+<span class="line" id="L169">        <span class="tok-kw">var</span> min_max_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L170">        <span class="tok-kw">const</span> min_max_str = <span class="tok-kw">try</span> std.fmt.bufPrint(min_max_buffer[<span class="tok-number">0</span>..], <span class="tok-str">&quot;({s} ... {s})&quot;</span>, .{ min_str, max_str });</span>
+<span class="line" id="L171"></span>
+<span class="line" id="L172">        std.debug.print(<span class="tok-str">&quot;{s:&lt;22} {s:&lt;8} {s:&lt;22} {s:&lt;28} {s:&lt;10} {s:&lt;10} {s:&lt;10}\n&quot;</span>, .{ <span class="tok-str">&quot;benchmark&quot;</span>, <span class="tok-str">&quot;runs&quot;</span>, <span class="tok-str">&quot;time (avg ± σ)&quot;</span>, <span class="tok-str">&quot;(min ... max)&quot;</span>, <span class="tok-str">&quot;p75&quot;</span>, <span class="tok-str">&quot;p99&quot;</span>, <span class="tok-str">&quot;p995&quot;</span> });</span>
+<span class="line" id="L173">        std.debug.print(<span class="tok-str">&quot;---------------------------------------------------------------------------------------------------------------\n&quot;</span>, .{});</span>
+<span class="line" id="L174">        std.debug.print(<span class="tok-str">&quot;{s:&lt;22} \x1b[90m{d:&lt;8} \x1b[33m{s:&lt;22} \x1b[95m{s:&lt;28} \x1b[90m{s:&lt;10} {s:&lt;10} {s:&lt;10}\x1b[0m\n&quot;</span>, .{ self.name, self.totalOperations, avg_std_str, min_max_str, p75_str, p99_str, p995_str });</span>
+<span class="line" id="L175">    }</span>
 <span class="line" id="L176"></span>
-<span class="line" id="L177">        <span class="tok-kw">var</span> sum: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L178">        <span class="tok-kw">for</span> (self.durations.items) |duration| {</span>
-<span class="line" id="L179">            sum += duration;</span>
-<span class="line" id="L180">        }</span>
-<span class="line" id="L181"></span>
-<span class="line" id="L182">        <span class="tok-kw">const</span> avg = sum / len;</span>
-<span class="line" id="L183"></span>
-<span class="line" id="L184">        <span class="tok-kw">return</span> avg;</span>
-<span class="line" id="L185">    }</span>
-<span class="line" id="L186">};</span>
+<span class="line" id="L177">    <span class="tok-comment">/// Calculate the average duration</span></span>
+<span class="line" id="L178">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">calculateAverage</span>(self: Benchmark) <span class="tok-type">u64</span> {</span>
+<span class="line" id="L179">        <span class="tok-comment">// prevent division by zero</span>
+</span>
+<span class="line" id="L180">        <span class="tok-kw">const</span> len = self.durations.items.len;</span>
+<span class="line" id="L181">        <span class="tok-kw">if</span> (len == <span class="tok-number">0</span>) <span class="tok-kw">return</span> <span class="tok-number">0</span>;</span>
+<span class="line" id="L182"></span>
+<span class="line" id="L183">        <span class="tok-kw">var</span> sum: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L184">        <span class="tok-kw">for</span> (self.durations.items) |duration| {</span>
+<span class="line" id="L185">            sum += duration;</span>
+<span class="line" id="L186">        }</span>
 <span class="line" id="L187"></span>
-<span class="line" id="L188"><span class="tok-comment">/// BenchFunc is a function type that represents a benchmark function.</span></span>
-<span class="line" id="L189"><span class="tok-comment">/// It takes a pointer to a Benchmark object.</span></span>
-<span class="line" id="L190"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> BenchFunc = <span class="tok-kw">fn</span> (*Benchmark) <span class="tok-type">void</span>;</span>
-<span class="line" id="L191"></span>
-<span class="line" id="L192"><span class="tok-comment">/// BenchmarkResult stores the result of a single benchmark.</span></span>
-<span class="line" id="L193"><span class="tok-comment">/// It includes the name and the total duration of the benchmark.</span></span>
-<span class="line" id="L194"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> BenchmarkResult = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L195">    <span class="tok-comment">/// Name of the benchmark.</span></span>
-<span class="line" id="L196">    name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
-<span class="line" id="L197">    <span class="tok-comment">/// Total duration of the benchmark in nanoseconds.</span></span>
-<span class="line" id="L198">    duration: <span class="tok-type">u64</span>,</span>
-<span class="line" id="L199">};</span>
-<span class="line" id="L200"></span>
-<span class="line" id="L201"><span class="tok-comment">/// BenchmarkResults acts as a container for multiple benchmark results.</span></span>
-<span class="line" id="L202"><span class="tok-comment">/// It provides functionality to format and print these results.</span></span>
-<span class="line" id="L203"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> BenchmarkResults = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L204">    <span class="tok-comment">/// A dynamic list of BenchmarkResult objects.</span></span>
-<span class="line" id="L205">    results: std.ArrayList(BenchmarkResult),</span>
-<span class="line" id="L206"></span>
-<span class="line" id="L207">    <span class="tok-comment">/// Determines the color representation based on the duration of the benchmark.</span></span>
-<span class="line" id="L208">    <span class="tok-comment">/// duration: The duration to evaluate.</span></span>
-<span class="line" id="L209">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">getColor</span>(self: *<span class="tok-kw">const</span> BenchmarkResults, duration: <span class="tok-type">u64</span>) c.Color {</span>
-<span class="line" id="L210">        <span class="tok-kw">const</span> max_duration = <span class="tok-builtin">@max</span>(self.results.items[<span class="tok-number">0</span>].duration, self.results.items[self.results.items.len - <span class="tok-number">1</span>].duration);</span>
-<span class="line" id="L211">        <span class="tok-kw">const</span> min_duration = <span class="tok-builtin">@min</span>(self.results.items[<span class="tok-number">0</span>].duration, self.results.items[self.results.items.len - <span class="tok-number">1</span>].duration);</span>
+<span class="line" id="L188">        <span class="tok-kw">const</span> avg = sum / len;</span>
+<span class="line" id="L189"></span>
+<span class="line" id="L190">        <span class="tok-kw">return</span> avg;</span>
+<span class="line" id="L191">    }</span>
+<span class="line" id="L192"></span>
+<span class="line" id="L193">    <span class="tok-comment">/// Calculate the standard deviation of the durations</span></span>
+<span class="line" id="L194">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">calculateStd</span>(self: Benchmark) <span class="tok-type">u64</span> {</span>
+<span class="line" id="L195">        <span class="tok-kw">if</span> (self.durations.items.len &lt;= <span class="tok-number">1</span>) <span class="tok-kw">return</span> <span class="tok-number">0</span>;</span>
+<span class="line" id="L196"></span>
+<span class="line" id="L197">        <span class="tok-kw">const</span> avg = self.calculateAverage();</span>
+<span class="line" id="L198">        <span class="tok-kw">var</span> nvar: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L199">        <span class="tok-kw">for</span> (self.durations.items) |dur| {</span>
+<span class="line" id="L200">            <span class="tok-comment">// NOTE: With realistic real-life samples this will never overflow,</span>
+</span>
+<span class="line" id="L201">            <span class="tok-comment">// however a solution without bitcasts would still be cleaner</span>
+</span>
+<span class="line" id="L202">            <span class="tok-kw">const</span> d: <span class="tok-type">i64</span> = <span class="tok-builtin">@bitCast</span>(dur);</span>
+<span class="line" id="L203">            <span class="tok-kw">const</span> a: <span class="tok-type">i64</span> = <span class="tok-builtin">@bitCast</span>(avg);</span>
+<span class="line" id="L204"></span>
+<span class="line" id="L205">            nvar += <span class="tok-builtin">@bitCast</span>((d - a) * (d - a));</span>
+<span class="line" id="L206">        }</span>
+<span class="line" id="L207"></span>
+<span class="line" id="L208">        <span class="tok-comment">// We are using the non-biased estimator for the variance; sum(X - μ)^2 / (n - 1)</span>
+</span>
+<span class="line" id="L209">        <span class="tok-kw">return</span> std.math.sqrt(nvar / (self.durations.items.len - <span class="tok-number">1</span>));</span>
+<span class="line" id="L210">    }</span>
+<span class="line" id="L211">};</span>
 <span class="line" id="L212"></span>
-<span class="line" id="L213">        <span class="tok-kw">if</span> (duration &lt;= min_duration) <span class="tok-kw">return</span> c.Color.green;</span>
-<span class="line" id="L214">        <span class="tok-kw">if</span> (duration &gt;= max_duration) <span class="tok-kw">return</span> c.Color.red;</span>
-<span class="line" id="L215"></span>
-<span class="line" id="L216">        <span class="tok-kw">const</span> prop = (duration - min_duration) * <span class="tok-number">100</span> / (max_duration - min_duration + <span class="tok-number">1</span>);</span>
-<span class="line" id="L217"></span>
-<span class="line" id="L218">        <span class="tok-kw">if</span> (prop &lt; <span class="tok-number">50</span>) <span class="tok-kw">return</span> c.Color.green;</span>
-<span class="line" id="L219">        <span class="tok-kw">if</span> (prop &lt; <span class="tok-number">75</span>) <span class="tok-kw">return</span> c.Color.yellow;</span>
-<span class="line" id="L220"></span>
-<span class="line" id="L221">        <span class="tok-kw">return</span> c.Color.red;</span>
-<span class="line" id="L222">    }</span>
-<span class="line" id="L223"></span>
-<span class="line" id="L224">    <span class="tok-comment">/// Formats and prints the benchmark results in a readable format.</span></span>
-<span class="line" id="L225">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrint</span>(self: BenchmarkResults) !<span class="tok-type">void</span> {</span>
-<span class="line" id="L226">        <span class="tok-kw">const</span> stdout = std.io.getStdOut().writer();</span>
-<span class="line" id="L227">        std.debug.print(<span class="tok-str">&quot;--------------------------------------------------------------------------------------\n&quot;</span>, .{});</span>
-<span class="line" id="L228"></span>
-<span class="line" id="L229">        <span class="tok-kw">for</span> (self.results.items) |result| {</span>
-<span class="line" id="L230">            <span class="tok-kw">try</span> stdout.print(<span class="tok-str">&quot;{s}&quot;</span>, .{result.name});</span>
-<span class="line" id="L231">        }</span>
-<span class="line" id="L232">    }</span>
-<span class="line" id="L233">};</span>
-<span class="line" id="L234"></span>
-<span class="line" id="L235"><span class="tok-comment">/// Executes a benchmark function within the context of a given Benchmark object.</span></span>
-<span class="line" id="L236"><span class="tok-comment">/// func: The benchmark function to be executed.</span></span>
-<span class="line" id="L237"><span class="tok-comment">/// bench: A pointer to a Benchmark object for tracking the benchmark.</span></span>
-<span class="line" id="L238"><span class="tok-comment">/// benchResult: A pointer to BenchmarkResults to store the results.</span></span>
-<span class="line" id="L239"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">run</span>(<span class="tok-kw">comptime</span> func: BenchFunc, bench: *Benchmark, benchResult: *BenchmarkResults) !<span class="tok-type">void</span> {</span>
-<span class="line" id="L240">    <span class="tok-kw">defer</span> bench.durations.deinit();</span>
-<span class="line" id="L241">    <span class="tok-kw">const</span> MIN_DURATION = <span class="tok-number">1_000_000_000</span>; <span class="tok-comment">// minimum benchmark time in nanoseconds (1 second)</span>
-</span>
-<span class="line" id="L242">    <span class="tok-kw">const</span> MAX_N = <span class="tok-number">65536</span>; <span class="tok-comment">// maximum number of executions for the final benchmark run</span>
-</span>
-<span class="line" id="L243">    <span class="tok-kw">const</span> MAX_ITERATIONS = <span class="tok-number">16384</span>; <span class="tok-comment">// Define a maximum number of iterations</span>
-</span>
-<span class="line" id="L244"></span>
-<span class="line" id="L245">    bench.N = <span class="tok-number">1</span>; <span class="tok-comment">// initial value; will be updated...</span>
-</span>
-<span class="line" id="L246">    <span class="tok-kw">var</span> duration: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L247">    <span class="tok-kw">var</span> iterations: <span class="tok-type">usize</span> = <span class="tok-number">0</span>; <span class="tok-comment">// Add an iterations counter</span>
-</span>
+<span class="line" id="L213"><span class="tok-comment">/// BenchFunc is a function type that represents a benchmark function.</span></span>
+<span class="line" id="L214"><span class="tok-comment">/// It takes a pointer to a Benchmark object.</span></span>
+<span class="line" id="L215"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> BenchFunc = <span class="tok-kw">fn</span> (*Benchmark) <span class="tok-type">void</span>;</span>
+<span class="line" id="L216"></span>
+<span class="line" id="L217"><span class="tok-comment">/// BenchmarkResult stores the result of a single benchmark.</span></span>
+<span class="line" id="L218"><span class="tok-comment">/// It includes the name and the total duration of the benchmark.</span></span>
+<span class="line" id="L219"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> BenchmarkResult = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L220">    <span class="tok-comment">/// Name of the benchmark.</span></span>
+<span class="line" id="L221">    name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
+<span class="line" id="L222">    <span class="tok-comment">/// Total duration of the benchmark in nanoseconds.</span></span>
+<span class="line" id="L223">    duration: <span class="tok-type">u64</span>,</span>
+<span class="line" id="L224">};</span>
+<span class="line" id="L225"></span>
+<span class="line" id="L226"><span class="tok-comment">/// BenchmarkResults acts as a container for multiple benchmark results.</span></span>
+<span class="line" id="L227"><span class="tok-comment">/// It provides functionality to format and print these results.</span></span>
+<span class="line" id="L228"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> BenchmarkResults = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L229">    <span class="tok-comment">/// A dynamic list of BenchmarkResult objects.</span></span>
+<span class="line" id="L230">    results: std.ArrayList(BenchmarkResult),</span>
+<span class="line" id="L231"></span>
+<span class="line" id="L232">    <span class="tok-comment">/// Determines the color representation based on the duration of the benchmark.</span></span>
+<span class="line" id="L233">    <span class="tok-comment">/// duration: The duration to evaluate.</span></span>
+<span class="line" id="L234">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">getColor</span>(self: *<span class="tok-kw">const</span> BenchmarkResults, duration: <span class="tok-type">u64</span>) c.Color {</span>
+<span class="line" id="L235">        <span class="tok-kw">const</span> max_duration = <span class="tok-builtin">@max</span>(self.results.items[<span class="tok-number">0</span>].duration, self.results.items[self.results.items.len - <span class="tok-number">1</span>].duration);</span>
+<span class="line" id="L236">        <span class="tok-kw">const</span> min_duration = <span class="tok-builtin">@min</span>(self.results.items[<span class="tok-number">0</span>].duration, self.results.items[self.results.items.len - <span class="tok-number">1</span>].duration);</span>
+<span class="line" id="L237"></span>
+<span class="line" id="L238">        <span class="tok-kw">if</span> (duration &lt;= min_duration) <span class="tok-kw">return</span> c.Color.green;</span>
+<span class="line" id="L239">        <span class="tok-kw">if</span> (duration &gt;= max_duration) <span class="tok-kw">return</span> c.Color.red;</span>
+<span class="line" id="L240"></span>
+<span class="line" id="L241">        <span class="tok-kw">const</span> prop = (duration - min_duration) * <span class="tok-number">100</span> / (max_duration - min_duration + <span class="tok-number">1</span>);</span>
+<span class="line" id="L242"></span>
+<span class="line" id="L243">        <span class="tok-kw">if</span> (prop &lt; <span class="tok-number">50</span>) <span class="tok-kw">return</span> c.Color.green;</span>
+<span class="line" id="L244">        <span class="tok-kw">if</span> (prop &lt; <span class="tok-number">75</span>) <span class="tok-kw">return</span> c.Color.yellow;</span>
+<span class="line" id="L245"></span>
+<span class="line" id="L246">        <span class="tok-kw">return</span> c.Color.red;</span>
+<span class="line" id="L247">    }</span>
 <span class="line" id="L248"></span>
-<span class="line" id="L249">    <span class="tok-comment">// increase N until we've run for a sufficiently long time or exceeded max_iterations</span>
+<span class="line" id="L249">    <span class="tok-comment">/// Formats and prints the benchmark results in a readable format.</span></span>
+<span class="line" id="L250">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrint</span>(self: BenchmarkResults) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L251">        <span class="tok-kw">const</span> stdout = std.io.getStdOut().writer();</span>
+<span class="line" id="L252">        std.debug.print(<span class="tok-str">&quot;--------------------------------------------------------------------------------------\n&quot;</span>, .{});</span>
+<span class="line" id="L253"></span>
+<span class="line" id="L254">        <span class="tok-kw">for</span> (self.results.items) |result| {</span>
+<span class="line" id="L255">            <span class="tok-kw">try</span> stdout.print(<span class="tok-str">&quot;{s}&quot;</span>, .{result.name});</span>
+<span class="line" id="L256">        }</span>
+<span class="line" id="L257">    }</span>
+<span class="line" id="L258">};</span>
+<span class="line" id="L259"></span>
+<span class="line" id="L260"><span class="tok-comment">/// Executes a benchmark function within the context of a given Benchmark object.</span></span>
+<span class="line" id="L261"><span class="tok-comment">/// func: The benchmark function to be executed.</span></span>
+<span class="line" id="L262"><span class="tok-comment">/// bench: A pointer to a Benchmark object for tracking the benchmark.</span></span>
+<span class="line" id="L263"><span class="tok-comment">/// benchResult: A pointer to BenchmarkResults to store the results.</span></span>
+<span class="line" id="L264"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">run</span>(<span class="tok-kw">comptime</span> func: BenchFunc, bench: *Benchmark, benchResult: *BenchmarkResults) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L265">    <span class="tok-kw">defer</span> bench.durations.deinit();</span>
+<span class="line" id="L266">    <span class="tok-kw">const</span> MIN_DURATION = <span class="tok-number">1_000_000_000</span>; <span class="tok-comment">// minimum benchmark time in nanoseconds (1 second)</span>
 </span>
-<span class="line" id="L250">    <span class="tok-kw">while</span> (duration &lt; MIN_DURATION <span class="tok-kw">and</span> iterations &lt; MAX_ITERATIONS) {</span>
-<span class="line" id="L251">        bench.reset();</span>
-<span class="line" id="L252"></span>
-<span class="line" id="L253">        bench.start();</span>
-<span class="line" id="L254">        <span class="tok-kw">var</span> j: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L255">        <span class="tok-kw">while</span> (j &lt; bench.N) : (j += <span class="tok-number">1</span>) {</span>
-<span class="line" id="L256">            func(bench);</span>
-<span class="line" id="L257">        }</span>
-<span class="line" id="L258"></span>
-<span class="line" id="L259">        bench.stop();</span>
-<span class="line" id="L260">        <span class="tok-comment">// double N for next iteration</span>
+<span class="line" id="L267">    <span class="tok-kw">const</span> MAX_N = <span class="tok-number">65536</span>; <span class="tok-comment">// maximum number of executions for the final benchmark run</span>
 </span>
-<span class="line" id="L261">        <span class="tok-kw">if</span> (bench.N &lt; MAX_N / <span class="tok-number">2</span>) {</span>
-<span class="line" id="L262">            bench.N *= <span class="tok-number">2</span>;</span>
-<span class="line" id="L263">        } <span class="tok-kw">else</span> {</span>
-<span class="line" id="L264">            bench.N = MAX_N;</span>
-<span class="line" id="L265">        }</span>
-<span class="line" id="L266"></span>
-<span class="line" id="L267">        iterations += <span class="tok-number">1</span>; <span class="tok-comment">// Increase the iteration counter</span>
+<span class="line" id="L268">    <span class="tok-kw">const</span> MAX_ITERATIONS = <span class="tok-number">16384</span>; <span class="tok-comment">// Define a maximum number of iterations</span>
 </span>
-<span class="line" id="L268">        duration += bench.elapsed(); <span class="tok-comment">// ...and duration</span>
+<span class="line" id="L269"></span>
+<span class="line" id="L270">    bench.N = <span class="tok-number">1</span>; <span class="tok-comment">// initial value; will be updated...</span>
 </span>
-<span class="line" id="L269">    }</span>
-<span class="line" id="L270"></span>
-<span class="line" id="L271">    <span class="tok-comment">// Safety first: make sure the recorded durations aren't all-zero</span>
+<span class="line" id="L271">    <span class="tok-kw">var</span> duration: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L272">    <span class="tok-kw">var</span> iterations: <span class="tok-type">usize</span> = <span class="tok-number">0</span>; <span class="tok-comment">// Add an iterations counter</span>
 </span>
-<span class="line" id="L272">    <span class="tok-kw">if</span> (duration == <span class="tok-number">0</span>) duration = <span class="tok-number">1</span>;</span>
 <span class="line" id="L273"></span>
-<span class="line" id="L274">    <span class="tok-comment">// Adjust N based on the actual duration achieved</span>
+<span class="line" id="L274">    <span class="tok-comment">// increase N until we've run for a sufficiently long time or exceeded max_iterations</span>
 </span>
-<span class="line" id="L275">    bench.N = <span class="tok-builtin">@intCast</span>((bench.N * MIN_DURATION) / duration);</span>
-<span class="line" id="L276">    <span class="tok-comment">// check that N doesn't go out of bounds</span>
+<span class="line" id="L275">    <span class="tok-kw">while</span> (duration &lt; MIN_DURATION <span class="tok-kw">and</span> iterations &lt; MAX_ITERATIONS) {</span>
+<span class="line" id="L276">        bench.reset();</span>
+<span class="line" id="L277"></span>
+<span class="line" id="L278">        bench.start();</span>
+<span class="line" id="L279">        <span class="tok-kw">var</span> j: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L280">        <span class="tok-kw">while</span> (j &lt; bench.N) : (j += <span class="tok-number">1</span>) {</span>
+<span class="line" id="L281">            func(bench);</span>
+<span class="line" id="L282">        }</span>
+<span class="line" id="L283"></span>
+<span class="line" id="L284">        bench.stop();</span>
+<span class="line" id="L285">        <span class="tok-comment">// double N for next iteration</span>
 </span>
-<span class="line" id="L277">    <span class="tok-kw">if</span> (bench.N == <span class="tok-number">0</span>) bench.N = <span class="tok-number">1</span>;</span>
-<span class="line" id="L278">    <span class="tok-kw">if</span> (bench.N &gt; MAX_N) bench.N = MAX_N;</span>
-<span class="line" id="L279"></span>
-<span class="line" id="L280">    <span class="tok-comment">// Now run the benchmark with the adjusted N value</span>
+<span class="line" id="L286">        <span class="tok-kw">if</span> (bench.N &lt; MAX_N / <span class="tok-number">2</span>) {</span>
+<span class="line" id="L287">            bench.N *= <span class="tok-number">2</span>;</span>
+<span class="line" id="L288">        } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L289">            bench.N = MAX_N;</span>
+<span class="line" id="L290">        }</span>
+<span class="line" id="L291"></span>
+<span class="line" id="L292">        iterations += <span class="tok-number">1</span>; <span class="tok-comment">// Increase the iteration counter</span>
 </span>
-<span class="line" id="L281">    bench.reset();</span>
-<span class="line" id="L282">    <span class="tok-kw">var</span> j: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L283">    <span class="tok-kw">while</span> (j &lt; bench.N) : (j += <span class="tok-number">1</span>) {</span>
-<span class="line" id="L284">        bench.start();</span>
-<span class="line" id="L285">        func(bench);</span>
-<span class="line" id="L286">        bench.stop();</span>
-<span class="line" id="L287">    }</span>
-<span class="line" id="L288"></span>
-<span class="line" id="L289">    <span class="tok-kw">const</span> elapsed = bench.elapsed();</span>
-<span class="line" id="L290">    <span class="tok-kw">try</span> benchResult.results.append(BenchmarkResult{</span>
-<span class="line" id="L291">        .name = bench.name,</span>
-<span class="line" id="L292">        .duration = elapsed,</span>
-<span class="line" id="L293">    });</span>
-<span class="line" id="L294"></span>
-<span class="line" id="L295">    bench.setTotalOperations(bench.N);</span>
-<span class="line" id="L296">    bench.report();</span>
-<span class="line" id="L297"></span>
-<span class="line" id="L298">    <span class="tok-kw">try</span> bench.prettyPrint();</span>
-<span class="line" id="L299">}</span>
-<span class="line" id="L300"></span>
+<span class="line" id="L293">        duration += bench.elapsed(); <span class="tok-comment">// ...and duration</span>
+</span>
+<span class="line" id="L294">    }</span>
+<span class="line" id="L295"></span>
+<span class="line" id="L296">    <span class="tok-comment">// Safety first: make sure the recorded durations aren't all-zero</span>
+</span>
+<span class="line" id="L297">    <span class="tok-kw">if</span> (duration == <span class="tok-number">0</span>) duration = <span class="tok-number">1</span>;</span>
+<span class="line" id="L298"></span>
+<span class="line" id="L299">    <span class="tok-comment">// Adjust N based on the actual duration achieved</span>
+</span>
+<span class="line" id="L300">    bench.N = <span class="tok-builtin">@intCast</span>((bench.N * MIN_DURATION) / duration);</span>
+<span class="line" id="L301">    <span class="tok-comment">// check that N doesn't go out of bounds</span>
+</span>
+<span class="line" id="L302">    <span class="tok-kw">if</span> (bench.N == <span class="tok-number">0</span>) bench.N = <span class="tok-number">1</span>;</span>
+<span class="line" id="L303">    <span class="tok-kw">if</span> (bench.N &gt; MAX_N) bench.N = MAX_N;</span>
+<span class="line" id="L304"></span>
+<span class="line" id="L305">    <span class="tok-comment">// Now run the benchmark with the adjusted N value</span>
+</span>
+<span class="line" id="L306">    bench.reset();</span>
+<span class="line" id="L307">    <span class="tok-kw">var</span> j: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L308">    <span class="tok-kw">while</span> (j &lt; bench.N) : (j += <span class="tok-number">1</span>) {</span>
+<span class="line" id="L309">        bench.start();</span>
+<span class="line" id="L310">        func(bench);</span>
+<span class="line" id="L311">        bench.stop();</span>
+<span class="line" id="L312">    }</span>
+<span class="line" id="L313"></span>
+<span class="line" id="L314">    <span class="tok-kw">const</span> elapsed = bench.elapsed();</span>
+<span class="line" id="L315">    <span class="tok-kw">try</span> benchResult.results.append(BenchmarkResult{</span>
+<span class="line" id="L316">        .name = bench.name,</span>
+<span class="line" id="L317">        .duration = elapsed,</span>
+<span class="line" id="L318">    });</span>
+<span class="line" id="L319"></span>
+<span class="line" id="L320">    bench.setTotalOperations(bench.N);</span>
+<span class="line" id="L321">    bench.report();</span>
+<span class="line" id="L322"></span>
+<span class="line" id="L323">    <span class="tok-kw">try</span> bench.prettyPrint();</span>
+<span class="line" id="L324">}</span>
+<span class="line" id="L325"></span>
 </code></pre></body>
 </html>
