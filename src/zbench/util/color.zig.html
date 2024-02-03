@@ -121,26 +121,23 @@
 <span class="line" id="L8">    magenta,</span>
 <span class="line" id="L9">    cyan,</span>
 <span class="line" id="L10">    reset,</span>
-<span class="line" id="L11"></span>
-<span class="line" id="L12">    <span class="tok-comment">// Return the ANSI escape code for this color.</span>
+<span class="line" id="L11">    none,</span>
+<span class="line" id="L12"></span>
+<span class="line" id="L13">    <span class="tok-comment">// Return the ANSI escape code for this color.</span>
 </span>
-<span class="line" id="L13">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">code</span>(self: Color) []<span class="tok-kw">const</span> <span class="tok-type">u8</span> {</span>
-<span class="line" id="L14">        <span class="tok-kw">return</span> <span class="tok-kw">switch</span> (self) {</span>
-<span class="line" id="L15">            .red =&gt; <span class="tok-str">&quot;\x1b[31m&quot;</span>,</span>
-<span class="line" id="L16">            .green =&gt; <span class="tok-str">&quot;\x1b[32m&quot;</span>,</span>
-<span class="line" id="L17">            .yellow =&gt; <span class="tok-str">&quot;\x1b[33m&quot;</span>,</span>
-<span class="line" id="L18">            .blue =&gt; <span class="tok-str">&quot;\x1b[34m&quot;</span>,</span>
-<span class="line" id="L19">            .magenta =&gt; <span class="tok-str">&quot;\x1b[35m&quot;</span>,</span>
-<span class="line" id="L20">            .cyan =&gt; <span class="tok-str">&quot;\x1b[36m&quot;</span>,</span>
-<span class="line" id="L21">            .reset =&gt; <span class="tok-str">&quot;\x1b[0m&quot;</span>,</span>
-<span class="line" id="L22">        };</span>
-<span class="line" id="L23">    }</span>
-<span class="line" id="L24">};</span>
-<span class="line" id="L25"></span>
-<span class="line" id="L26"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">colorPrint</span>(color: Color, text: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>) !<span class="tok-type">void</span> {</span>
-<span class="line" id="L27">    <span class="tok-kw">const</span> stdout = std.io.getStdOut().writer();</span>
-<span class="line" id="L28">    <span class="tok-kw">try</span> stdout.print(<span class="tok-str">&quot;{}{}{}&quot;</span>, .{ color.code(), text, Color.reset.code() });</span>
-<span class="line" id="L29">}</span>
-<span class="line" id="L30"></span>
+<span class="line" id="L14">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">code</span>(self: Color) []<span class="tok-kw">const</span> <span class="tok-type">u8</span> {</span>
+<span class="line" id="L15">        <span class="tok-kw">return</span> <span class="tok-kw">switch</span> (self) {</span>
+<span class="line" id="L16">            .red =&gt; <span class="tok-str">&quot;\x1b[31m&quot;</span>,</span>
+<span class="line" id="L17">            .green =&gt; <span class="tok-str">&quot;\x1b[32m&quot;</span>,</span>
+<span class="line" id="L18">            .yellow =&gt; <span class="tok-str">&quot;\x1b[33m&quot;</span>,</span>
+<span class="line" id="L19">            .blue =&gt; <span class="tok-str">&quot;\x1b[34m&quot;</span>,</span>
+<span class="line" id="L20">            .magenta =&gt; <span class="tok-str">&quot;\x1b[35m&quot;</span>,</span>
+<span class="line" id="L21">            .cyan =&gt; <span class="tok-str">&quot;\x1b[36m&quot;</span>,</span>
+<span class="line" id="L22">            .reset =&gt; <span class="tok-str">&quot;\x1b[0m&quot;</span>,</span>
+<span class="line" id="L23">            .none =&gt; <span class="tok-str">&quot;&quot;</span>,</span>
+<span class="line" id="L24">        };</span>
+<span class="line" id="L25">    }</span>
+<span class="line" id="L26">};</span>
+<span class="line" id="L27"></span>
 </code></pre></body>
 </html>

@@ -112,25 +112,99 @@
 </head>
 <body>
 <pre><code><span class="line" id="L1"><span class="tok-kw">const</span> std = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;std&quot;</span>);</span>
-<span class="line" id="L2"></span>
-<span class="line" id="L3"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">duration</span>(buffer: []<span class="tok-type">u8</span>, d: <span class="tok-type">u64</span>) ![]<span class="tok-type">u8</span> {</span>
-<span class="line" id="L4">    <span class="tok-kw">const</span> units = [_][]<span class="tok-kw">const</span> <span class="tok-type">u8</span>{ <span class="tok-str">&quot;ns&quot;</span>, <span class="tok-str">&quot;µs&quot;</span>, <span class="tok-str">&quot;ms&quot;</span>, <span class="tok-str">&quot;s&quot;</span> };</span>
-<span class="line" id="L5"></span>
-<span class="line" id="L6">    <span class="tok-kw">var</span> scaledDuration: <span class="tok-type">u64</span> = d;</span>
-<span class="line" id="L7">    <span class="tok-kw">var</span> unitIndex: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L8"></span>
-<span class="line" id="L9">    <span class="tok-kw">var</span> fractionalPart: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L10"></span>
-<span class="line" id="L11">    <span class="tok-kw">while</span> (scaledDuration &gt;= <span class="tok-number">1_000</span> <span class="tok-kw">and</span> unitIndex &lt; units.len - <span class="tok-number">1</span>) {</span>
-<span class="line" id="L12">        fractionalPart = scaledDuration % <span class="tok-number">1_000</span>;</span>
-<span class="line" id="L13">        scaledDuration /= <span class="tok-number">1_000</span>;</span>
-<span class="line" id="L14">        unitIndex += <span class="tok-number">1</span>;</span>
-<span class="line" id="L15">    }</span>
-<span class="line" id="L16"></span>
-<span class="line" id="L17">    <span class="tok-kw">const</span> formatted = <span class="tok-kw">try</span> std.fmt.bufPrint(buffer, <span class="tok-str">&quot;{d}.{d}{s}&quot;</span>, .{ scaledDuration, fractionalPart, units[unitIndex] });</span>
-<span class="line" id="L18"></span>
-<span class="line" id="L19">    <span class="tok-kw">return</span> formatted;</span>
-<span class="line" id="L20">}</span>
-<span class="line" id="L21"></span>
+<span class="line" id="L2"><span class="tok-kw">const</span> Color = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./color.zig&quot;</span>).Color;</span>
+<span class="line" id="L3"></span>
+<span class="line" id="L4"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">duration</span>(buffer: []<span class="tok-type">u8</span>, d: <span class="tok-type">u64</span>) ![]<span class="tok-type">u8</span> {</span>
+<span class="line" id="L5">    <span class="tok-kw">const</span> units = [_][]<span class="tok-kw">const</span> <span class="tok-type">u8</span>{ <span class="tok-str">&quot;ns&quot;</span>, <span class="tok-str">&quot;µs&quot;</span>, <span class="tok-str">&quot;ms&quot;</span>, <span class="tok-str">&quot;s&quot;</span> };</span>
+<span class="line" id="L6"></span>
+<span class="line" id="L7">    <span class="tok-kw">var</span> scaledDuration: <span class="tok-type">u64</span> = d;</span>
+<span class="line" id="L8">    <span class="tok-kw">var</span> unitIndex: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L9"></span>
+<span class="line" id="L10">    <span class="tok-kw">var</span> fractionalPart: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L11"></span>
+<span class="line" id="L12">    <span class="tok-kw">while</span> (scaledDuration &gt;= <span class="tok-number">1_000</span> <span class="tok-kw">and</span> unitIndex &lt; units.len - <span class="tok-number">1</span>) {</span>
+<span class="line" id="L13">        fractionalPart = scaledDuration % <span class="tok-number">1_000</span>;</span>
+<span class="line" id="L14">        scaledDuration /= <span class="tok-number">1_000</span>;</span>
+<span class="line" id="L15">        unitIndex += <span class="tok-number">1</span>;</span>
+<span class="line" id="L16">    }</span>
+<span class="line" id="L17"></span>
+<span class="line" id="L18">    <span class="tok-kw">const</span> formatted = <span class="tok-kw">try</span> std.fmt.bufPrint(buffer, <span class="tok-str">&quot;{d}.{d}{s}&quot;</span>, .{ scaledDuration, fractionalPart, units[unitIndex] });</span>
+<span class="line" id="L19"></span>
+<span class="line" id="L20">    <span class="tok-kw">return</span> formatted;</span>
+<span class="line" id="L21">}</span>
+<span class="line" id="L22"></span>
+<span class="line" id="L23"><span class="tok-comment">/// Pretty-prints the header for the result pretty-print table</span></span>
+<span class="line" id="L24"><span class="tok-comment">/// writer: Type that has the associated method print (for example std.io.getStdOut.writer())</span></span>
+<span class="line" id="L25"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrintHeader</span>(writer: <span class="tok-kw">anytype</span>) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L26">    <span class="tok-kw">try</span> writer.print(</span>
+<span class="line" id="L27">        <span class="tok-str">&quot;\n{s:&lt;22} {s:&lt;8} {s:&lt;14} {s:&lt;22} {s:&lt;28} {s:&lt;10} {s:&lt;10} {s:&lt;10}\n&quot;</span>,</span>
+<span class="line" id="L28">        .{ <span class="tok-str">&quot;benchmark&quot;</span>, <span class="tok-str">&quot;runs&quot;</span>, <span class="tok-str">&quot;total time&quot;</span>, <span class="tok-str">&quot;time/run (avg ± σ)&quot;</span>, <span class="tok-str">&quot;(min ... max)&quot;</span>, <span class="tok-str">&quot;p75&quot;</span>, <span class="tok-str">&quot;p99&quot;</span>, <span class="tok-str">&quot;p995&quot;</span> },</span>
+<span class="line" id="L29">    );</span>
+<span class="line" id="L30">    <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;-----------------------------------------------------------------------------------------------------------------------------\n&quot;</span>, .{});</span>
+<span class="line" id="L31">}</span>
+<span class="line" id="L32"></span>
+<span class="line" id="L33"><span class="tok-comment">/// Pretty-prints the name of the benchmark</span></span>
+<span class="line" id="L34"><span class="tok-comment">/// writer: Type that has the associated method print (for example std.io.getStdOut.writer())</span></span>
+<span class="line" id="L35"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrintName</span>(name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>, writer: <span class="tok-kw">anytype</span>, color: Color) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L36">    <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{s}{s:&lt;22}{s} &quot;</span>, .{ color.code(), name, Color.reset.code() });</span>
+<span class="line" id="L37">}</span>
+<span class="line" id="L38"></span>
+<span class="line" id="L39"><span class="tok-comment">/// Pretty-prints the number of total operations (or runs) of the benchmark performed</span></span>
+<span class="line" id="L40"><span class="tok-comment">/// writer: Type that has the associated method print (for example std.io.getStdOut.writer())</span></span>
+<span class="line" id="L41"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrintTotalOperations</span>(total_operations: <span class="tok-type">u64</span>, writer: <span class="tok-kw">anytype</span>, color: Color) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L42">    <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{s}{d:&lt;8}{s} &quot;</span>, .{ color.code(), total_operations, Color.reset.code() });</span>
+<span class="line" id="L43">}</span>
+<span class="line" id="L44"></span>
+<span class="line" id="L45"><span class="tok-comment">/// Pretty-prints the total time it took to perform all the runs</span></span>
+<span class="line" id="L46"><span class="tok-comment">/// writer: Type that has the associated method print (for example std.io.getStdOut.writer())</span></span>
+<span class="line" id="L47"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrintTotalTime</span>(total_time: <span class="tok-type">u64</span>, writer: <span class="tok-kw">anytype</span>, color: Color) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L48">    <span class="tok-kw">var</span> buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L49">    <span class="tok-kw">const</span> str = <span class="tok-kw">try</span> duration(buffer[<span class="tok-number">0</span>..], total_time);</span>
+<span class="line" id="L50"></span>
+<span class="line" id="L51">    <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{s}{s:&lt;14}{s} &quot;</span>, .{ color.code(), str, Color.reset.code() });</span>
+<span class="line" id="L52">}</span>
+<span class="line" id="L53"></span>
+<span class="line" id="L54"><span class="tok-comment">/// Pretty-prints the average (arithmetic mean) and the standard deviation of the durations</span></span>
+<span class="line" id="L55"><span class="tok-comment">/// writer: Type that has the associated method print (for example std.io.getStdOut.writer())</span></span>
+<span class="line" id="L56"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrintAvgStd</span>(avg: <span class="tok-type">u64</span>, stdd: <span class="tok-type">u64</span>, writer: <span class="tok-kw">anytype</span>, color: Color) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L57">    <span class="tok-kw">var</span> buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L58">    <span class="tok-kw">var</span> avg_stdd_offset = (<span class="tok-kw">try</span> duration(buffer[<span class="tok-number">0</span>..], avg)).len;</span>
+<span class="line" id="L59">    avg_stdd_offset += (<span class="tok-kw">try</span> std.fmt.bufPrint(buffer[avg_stdd_offset..], <span class="tok-str">&quot; ± &quot;</span>, .{})).len;</span>
+<span class="line" id="L60">    avg_stdd_offset += (<span class="tok-kw">try</span> duration(buffer[avg_stdd_offset..], stdd)).len;</span>
+<span class="line" id="L61">    <span class="tok-kw">const</span> str = buffer[<span class="tok-number">0</span>..avg_stdd_offset];</span>
+<span class="line" id="L62"></span>
+<span class="line" id="L63">    <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{s}{s:&lt;22}{s} &quot;</span>, .{ color.code(), str, Color.reset.code() });</span>
+<span class="line" id="L64">}</span>
+<span class="line" id="L65"></span>
+<span class="line" id="L66"><span class="tok-comment">/// Pretty-prints the minumim and maximum duration</span></span>
+<span class="line" id="L67"><span class="tok-comment">/// writer: Type that has the associated method print (for example std.io.getStdOut.writer())</span></span>
+<span class="line" id="L68"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrintMinMax</span>(min: <span class="tok-type">u64</span>, max: <span class="tok-type">u64</span>, writer: <span class="tok-kw">anytype</span>, color: Color) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L69">    <span class="tok-kw">var</span> min_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L70">    <span class="tok-kw">const</span> min_str = <span class="tok-kw">try</span> duration(min_buffer[<span class="tok-number">0</span>..], min);</span>
+<span class="line" id="L71"></span>
+<span class="line" id="L72">    <span class="tok-kw">var</span> max_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L73">    <span class="tok-kw">const</span> max_str = <span class="tok-kw">try</span> duration(max_buffer[<span class="tok-number">0</span>..], max);</span>
+<span class="line" id="L74"></span>
+<span class="line" id="L75">    <span class="tok-kw">var</span> buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L76">    <span class="tok-kw">const</span> str = <span class="tok-kw">try</span> std.fmt.bufPrint(buffer[<span class="tok-number">0</span>..], <span class="tok-str">&quot;({s} ... {s})&quot;</span>, .{ min_str, max_str });</span>
+<span class="line" id="L77"></span>
+<span class="line" id="L78">    <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{s}{s:&lt;28}{s} &quot;</span>, .{ color.code(), str, Color.reset.code() });</span>
+<span class="line" id="L79">}</span>
+<span class="line" id="L80"></span>
+<span class="line" id="L81"><span class="tok-comment">/// Pretty-prints the 75th, 99th and 99.5th percentile of the durations</span></span>
+<span class="line" id="L82"><span class="tok-comment">/// writer: Type that has the associated method print (for example std.io.getStdOut.writer())</span></span>
+<span class="line" id="L83"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrintPercentiles</span>(p75: <span class="tok-type">u64</span>, p99: <span class="tok-type">u64</span>, p995: <span class="tok-type">u64</span>, writer: <span class="tok-kw">anytype</span>, color: Color) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L84">    <span class="tok-kw">var</span> p75_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L85">    <span class="tok-kw">const</span> p75_str = <span class="tok-kw">try</span> duration(p75_buffer[<span class="tok-number">0</span>..], p75);</span>
+<span class="line" id="L86"></span>
+<span class="line" id="L87">    <span class="tok-kw">var</span> p99_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L88">    <span class="tok-kw">const</span> p99_str = <span class="tok-kw">try</span> duration(p99_buffer[<span class="tok-number">0</span>..], p99);</span>
+<span class="line" id="L89"></span>
+<span class="line" id="L90">    <span class="tok-kw">var</span> p995_buffer: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L91">    <span class="tok-kw">const</span> p995_str = <span class="tok-kw">try</span> duration(p995_buffer[<span class="tok-number">0</span>..], p995);</span>
+<span class="line" id="L92"></span>
+<span class="line" id="L93">    <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{s}{s:&lt;10} {s:&lt;10} {s:&lt;10}{s} &quot;</span>, .{ color.code(), p75_str, p99_str, p995_str, Color.reset.code() });</span>
+<span class="line" id="L94">}</span>
+<span class="line" id="L95"></span>
 </code></pre></body>
 </html>
