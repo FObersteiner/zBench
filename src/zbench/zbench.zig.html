@@ -124,414 +124,409 @@
 <span class="line" id="L11"><span class="tok-kw">const</span> quicksort = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./util/quicksort.zig&quot;</span>);</span>
 <span class="line" id="L12"><span class="tok-kw">const</span> platform = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./util/platform.zig&quot;</span>);</span>
 <span class="line" id="L13"></span>
-<span class="line" id="L14"><span class="tok-comment">/// Configuration for benchmarking.</span></span>
-<span class="line" id="L15"><span class="tok-comment">/// This struct holds settings to control the behavior of benchmark executions.</span></span>
-<span class="line" id="L16"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Config = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L17">    <span class="tok-comment">/// Number of iterations the benchmark has been run. Initialized to 0.</span></span>
-<span class="line" id="L18">    <span class="tok-comment">/// If 0 then zBench will calculate an value.</span></span>
-<span class="line" id="L19">    iterations: <span class="tok-type">u16</span> = <span class="tok-number">0</span>,</span>
-<span class="line" id="L20"></span>
-<span class="line" id="L21">    <span class="tok-comment">/// Maximum number of iterations the benchmark can run. Default is 16384.</span></span>
-<span class="line" id="L22">    <span class="tok-comment">/// This limit helps to avoid excessively long benchmark runs.</span></span>
-<span class="line" id="L23">    max_iterations: <span class="tok-type">u16</span> = <span class="tok-number">16384</span>,</span>
-<span class="line" id="L24"></span>
-<span class="line" id="L25">    <span class="tok-comment">/// Time budget for the benchmark in nanoseconds. Default is 2e9 (2 seconds).</span></span>
-<span class="line" id="L26">    <span class="tok-comment">/// This value is used to determine how long a single benchmark should be allowed to run</span></span>
-<span class="line" id="L27">    <span class="tok-comment">/// before concluding. Helps in avoiding long-running benchmarks.</span></span>
-<span class="line" id="L28">    time_budget: <span class="tok-type">u64</span> = <span class="tok-number">2e9</span>, <span class="tok-comment">// 2 seconds</span>
-</span>
+<span class="line" id="L14"><span class="tok-comment">/// LifecycleHooks containing optional hooks for lifecycle events in benchmarking.</span></span>
+<span class="line" id="L15"><span class="tok-comment">/// Each field in this struct is a nullable function pointer.</span></span>
+<span class="line" id="L16"><span class="tok-kw">const</span> LifecycleHooks = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L17">    beforeAll: ?*<span class="tok-kw">const</span> <span class="tok-kw">fn</span> () <span class="tok-type">void</span> = <span class="tok-null">null</span>,</span>
+<span class="line" id="L18">    afterAll: ?*<span class="tok-kw">const</span> <span class="tok-kw">fn</span> () <span class="tok-type">void</span> = <span class="tok-null">null</span>,</span>
+<span class="line" id="L19">    beforeEach: ?*<span class="tok-kw">const</span> <span class="tok-kw">fn</span> () <span class="tok-type">void</span> = <span class="tok-null">null</span>,</span>
+<span class="line" id="L20">    afterEach: ?*<span class="tok-kw">const</span> <span class="tok-kw">fn</span> () <span class="tok-type">void</span> = <span class="tok-null">null</span>,</span>
+<span class="line" id="L21">};</span>
+<span class="line" id="L22"></span>
+<span class="line" id="L23"><span class="tok-comment">/// Configuration for benchmarking.</span></span>
+<span class="line" id="L24"><span class="tok-comment">/// This struct holds settings to control the behavior of benchmark executions.</span></span>
+<span class="line" id="L25"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Config = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L26">    <span class="tok-comment">/// Number of iterations the benchmark has been run. Initialized to 0.</span></span>
+<span class="line" id="L27">    <span class="tok-comment">/// If 0 then zBench will calculate an value.</span></span>
+<span class="line" id="L28">    iterations: <span class="tok-type">u16</span> = <span class="tok-number">0</span>,</span>
 <span class="line" id="L29"></span>
-<span class="line" id="L30">    <span class="tok-comment">/// Flag to indicate whether system information should be displayed. Default is false.</span></span>
-<span class="line" id="L31">    <span class="tok-comment">/// If true, detailed system information (e.g., CPU, memory) will be displayed</span></span>
-<span class="line" id="L32">    <span class="tok-comment">/// along with the benchmark results. Useful for understanding the environment</span></span>
-<span class="line" id="L33">    <span class="tok-comment">/// in which the benchmarks were run.</span></span>
-<span class="line" id="L34">    display_system_info: <span class="tok-type">bool</span> = <span class="tok-null">false</span>,</span>
-<span class="line" id="L35">};</span>
-<span class="line" id="L36"></span>
-<span class="line" id="L37"><span class="tok-comment">/// Benchmark is a type representing a single benchmark session.</span></span>
-<span class="line" id="L38"><span class="tok-comment">/// It provides metrics and utilities for performance measurement.</span></span>
-<span class="line" id="L39"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Benchmark = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L40">    <span class="tok-comment">/// Used to represent the 75th, 99th and 99.5th percentiles of the recorded durations,</span></span>
-<span class="line" id="L41">    <span class="tok-comment">/// generated by `Benchmark.calculatePercentiles`.</span></span>
-<span class="line" id="L42">    <span class="tok-kw">pub</span> <span class="tok-kw">const</span> Percentiles = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L43">        p75: <span class="tok-type">u64</span>,</span>
-<span class="line" id="L44">        p99: <span class="tok-type">u64</span>,</span>
-<span class="line" id="L45">        p995: <span class="tok-type">u64</span>,</span>
-<span class="line" id="L46">    };</span>
-<span class="line" id="L47"></span>
-<span class="line" id="L48">    <span class="tok-comment">/// Name of the benchmark.</span></span>
-<span class="line" id="L49">    name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
-<span class="line" id="L50">    <span class="tok-comment">/// Number of iterations to be performed in the benchmark.</span></span>
-<span class="line" id="L51">    N: <span class="tok-type">usize</span> = <span class="tok-number">1</span>,</span>
-<span class="line" id="L52">    <span class="tok-comment">/// Timer used to track the duration of the benchmark.</span></span>
-<span class="line" id="L53">    timer: std.time.Timer,</span>
-<span class="line" id="L54">    <span class="tok-comment">/// Total number of operations performed during the benchmark.</span></span>
-<span class="line" id="L55">    total_operations: <span class="tok-type">usize</span> = <span class="tok-number">0</span>,</span>
-<span class="line" id="L56">    <span class="tok-comment">/// Minimum duration recorded among all runs (initially set to the maximum possible value).</span></span>
-<span class="line" id="L57">    min_duration: <span class="tok-type">u64</span> = std.math.maxInt(<span class="tok-type">u64</span>),</span>
-<span class="line" id="L58">    <span class="tok-comment">/// Maximum duration recorded among all runs.</span></span>
-<span class="line" id="L59">    max_duration: <span class="tok-type">u64</span> = <span class="tok-number">0</span>,</span>
-<span class="line" id="L60">    <span class="tok-comment">/// Total duration accumulated over all runs.</span></span>
-<span class="line" id="L61">    total_duration: <span class="tok-type">u64</span> = <span class="tok-number">0</span>,</span>
-<span class="line" id="L62">    <span class="tok-comment">/// A dynamic list storing the duration of each run.</span></span>
-<span class="line" id="L63">    durations: std.ArrayList(<span class="tok-type">u64</span>),</span>
-<span class="line" id="L64">    <span class="tok-comment">/// Memory allocator used by the benchmark.</span></span>
-<span class="line" id="L65">    allocator: std.mem.Allocator,</span>
-<span class="line" id="L66">    <span class="tok-comment">/// Configuration settings</span></span>
-<span class="line" id="L67">    config: Config,</span>
-<span class="line" id="L68"></span>
-<span class="line" id="L69">    <span class="tok-comment">/// Initializes a new Benchmark instance.</span></span>
-<span class="line" id="L70">    <span class="tok-comment">/// name: A string representing the benchmark's name.</span></span>
-<span class="line" id="L71">    <span class="tok-comment">/// allocator: Memory allocator to be used.</span></span>
-<span class="line" id="L72">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">init</span>(name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>, allocator: std.mem.Allocator, config: Config) !Benchmark {</span>
-<span class="line" id="L73">        <span class="tok-kw">const</span> bench = Benchmark{</span>
-<span class="line" id="L74">            .name = name,</span>
-<span class="line" id="L75">            .allocator = allocator,</span>
-<span class="line" id="L76">            .config = config,</span>
-<span class="line" id="L77">            .timer = std.time.Timer.start() <span class="tok-kw">catch</span> <span class="tok-kw">return</span> <span class="tok-kw">error</span>.TimerUnsupported,</span>
-<span class="line" id="L78">            .durations = std.ArrayList(<span class="tok-type">u64</span>).init(allocator),</span>
-<span class="line" id="L79">        };</span>
-<span class="line" id="L80"></span>
-<span class="line" id="L81">        <span class="tok-kw">return</span> bench;</span>
-<span class="line" id="L82">    }</span>
-<span class="line" id="L83"></span>
-<span class="line" id="L84">    <span class="tok-comment">/// Starts or restarts the benchmark timer.</span></span>
-<span class="line" id="L85">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">start</span>(self: *Benchmark) <span class="tok-type">void</span> {</span>
-<span class="line" id="L86">        self.timer.reset();</span>
-<span class="line" id="L87">    }</span>
-<span class="line" id="L88"></span>
-<span class="line" id="L89">    <span class="tok-comment">/// Stop the benchmark and record the duration</span></span>
-<span class="line" id="L90">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">stop</span>(self: *Benchmark) <span class="tok-type">void</span> {</span>
-<span class="line" id="L91">        <span class="tok-kw">const</span> elapsedDuration = self.timer.read();</span>
-<span class="line" id="L92">        self.total_duration += elapsedDuration;</span>
-<span class="line" id="L93"></span>
-<span class="line" id="L94">        <span class="tok-kw">if</span> (elapsedDuration &lt; self.min_duration) self.min_duration = elapsedDuration;</span>
-<span class="line" id="L95">        <span class="tok-kw">if</span> (elapsedDuration &gt; self.max_duration) self.max_duration = elapsedDuration;</span>
-<span class="line" id="L96"></span>
-<span class="line" id="L97">        self.durations.append(elapsedDuration) <span class="tok-kw">catch</span> <span class="tok-kw">unreachable</span>;</span>
-<span class="line" id="L98">    }</span>
+<span class="line" id="L30">    <span class="tok-comment">/// Maximum number of iterations the benchmark can run. Default is 16384.</span></span>
+<span class="line" id="L31">    <span class="tok-comment">/// This limit helps to avoid excessively long benchmark runs.</span></span>
+<span class="line" id="L32">    max_iterations: <span class="tok-type">u16</span> = <span class="tok-number">16384</span>,</span>
+<span class="line" id="L33"></span>
+<span class="line" id="L34">    <span class="tok-comment">/// Time budget for the benchmark in nanoseconds. Default is 2e9 (2 seconds).</span></span>
+<span class="line" id="L35">    <span class="tok-comment">/// This value is used to determine how long a single benchmark should be allowed to run</span></span>
+<span class="line" id="L36">    <span class="tok-comment">/// before concluding. Helps in avoiding long-running benchmarks.</span></span>
+<span class="line" id="L37">    time_budget: <span class="tok-type">u64</span> = <span class="tok-number">2e9</span>, <span class="tok-comment">// 2 seconds</span>
+</span>
+<span class="line" id="L38"></span>
+<span class="line" id="L39">    <span class="tok-comment">/// Configuration for lifecycle hooks in benchmarking.</span></span>
+<span class="line" id="L40">    <span class="tok-comment">/// Provides the ability to define custom actions at different stages of the benchmark process:</span></span>
+<span class="line" id="L41">    <span class="tok-comment">/// - `beforeAll`: A hook that runs once before all benchmarks begin.</span></span>
+<span class="line" id="L42">    <span class="tok-comment">/// - `afterAll`: A hook that runs once after all benchmarks have completed.</span></span>
+<span class="line" id="L43">    <span class="tok-comment">/// - `beforeEach`: A hook that runs before each individual benchmark.</span></span>
+<span class="line" id="L44">    <span class="tok-comment">/// - `afterEach`: A hook that runs after each individual benchmark.</span></span>
+<span class="line" id="L45">    <span class="tok-comment">/// This allows for custom setup and teardown operations, as well as fine-grained control</span></span>
+<span class="line" id="L46">    <span class="tok-comment">/// over the environment in which benchmarks are run.</span></span>
+<span class="line" id="L47">    hooks: LifecycleHooks = .{},</span>
+<span class="line" id="L48"></span>
+<span class="line" id="L49">    <span class="tok-comment">/// Flag to indicate whether system information should be displayed. Default is false.</span></span>
+<span class="line" id="L50">    <span class="tok-comment">/// If true, detailed system information (e.g., CPU, memory) will be displayed</span></span>
+<span class="line" id="L51">    <span class="tok-comment">/// along with the benchmark results. Useful for understanding the environment</span></span>
+<span class="line" id="L52">    <span class="tok-comment">/// in which the benchmarks were run.</span></span>
+<span class="line" id="L53">    display_system_info: <span class="tok-type">bool</span> = <span class="tok-null">false</span>,</span>
+<span class="line" id="L54">};</span>
+<span class="line" id="L55"></span>
+<span class="line" id="L56"><span class="tok-comment">/// Benchmark is a type representing a single benchmark session.</span></span>
+<span class="line" id="L57"><span class="tok-comment">/// It provides metrics and utilities for performance measurement.</span></span>
+<span class="line" id="L58"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Benchmark = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L59">    <span class="tok-comment">/// Used to represent the 75th, 99th and 99.5th percentiles of the recorded durations,</span></span>
+<span class="line" id="L60">    <span class="tok-comment">/// generated by `Benchmark.calculatePercentiles`.</span></span>
+<span class="line" id="L61">    <span class="tok-kw">pub</span> <span class="tok-kw">const</span> Percentiles = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L62">        p75: <span class="tok-type">u64</span>,</span>
+<span class="line" id="L63">        p99: <span class="tok-type">u64</span>,</span>
+<span class="line" id="L64">        p995: <span class="tok-type">u64</span>,</span>
+<span class="line" id="L65">    };</span>
+<span class="line" id="L66"></span>
+<span class="line" id="L67">    <span class="tok-comment">/// Name of the benchmark.</span></span>
+<span class="line" id="L68">    name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
+<span class="line" id="L69">    <span class="tok-comment">/// Number of iterations to be performed in the benchmark.</span></span>
+<span class="line" id="L70">    N: <span class="tok-type">usize</span> = <span class="tok-number">1</span>,</span>
+<span class="line" id="L71">    <span class="tok-comment">/// Timer used to track the duration of the benchmark.</span></span>
+<span class="line" id="L72">    timer: std.time.Timer,</span>
+<span class="line" id="L73">    <span class="tok-comment">/// Total number of operations performed during the benchmark.</span></span>
+<span class="line" id="L74">    total_operations: <span class="tok-type">usize</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L75">    <span class="tok-comment">/// Minimum duration recorded among all runs (initially set to the maximum possible value).</span></span>
+<span class="line" id="L76">    min_duration: <span class="tok-type">u64</span> = std.math.maxInt(<span class="tok-type">u64</span>),</span>
+<span class="line" id="L77">    <span class="tok-comment">/// Maximum duration recorded among all runs.</span></span>
+<span class="line" id="L78">    max_duration: <span class="tok-type">u64</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L79">    <span class="tok-comment">/// Total duration accumulated over all runs.</span></span>
+<span class="line" id="L80">    total_duration: <span class="tok-type">u64</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L81">    <span class="tok-comment">/// A dynamic list storing the duration of each run.</span></span>
+<span class="line" id="L82">    durations: std.ArrayList(<span class="tok-type">u64</span>),</span>
+<span class="line" id="L83">    <span class="tok-comment">/// Memory allocator used by the benchmark.</span></span>
+<span class="line" id="L84">    allocator: std.mem.Allocator,</span>
+<span class="line" id="L85">    <span class="tok-comment">/// Configuration settings</span></span>
+<span class="line" id="L86">    config: Config,</span>
+<span class="line" id="L87"></span>
+<span class="line" id="L88">    <span class="tok-comment">/// Initializes a new Benchmark instance.</span></span>
+<span class="line" id="L89">    <span class="tok-comment">/// name: A string representing the benchmark's name.</span></span>
+<span class="line" id="L90">    <span class="tok-comment">/// allocator: Memory allocator to be used.</span></span>
+<span class="line" id="L91">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">init</span>(name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>, allocator: std.mem.Allocator, config: Config) !Benchmark {</span>
+<span class="line" id="L92">        <span class="tok-kw">const</span> bench = Benchmark{</span>
+<span class="line" id="L93">            .name = name,</span>
+<span class="line" id="L94">            .allocator = allocator,</span>
+<span class="line" id="L95">            .config = config,</span>
+<span class="line" id="L96">            .timer = std.time.Timer.start() <span class="tok-kw">catch</span> <span class="tok-kw">return</span> <span class="tok-kw">error</span>.TimerUnsupported,</span>
+<span class="line" id="L97">            .durations = std.ArrayList(<span class="tok-type">u64</span>).init(allocator),</span>
+<span class="line" id="L98">        };</span>
 <span class="line" id="L99"></span>
-<span class="line" id="L100">    <span class="tok-comment">/// Reset the benchmark</span></span>
-<span class="line" id="L101">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">reset</span>(self: *Benchmark) <span class="tok-type">void</span> {</span>
-<span class="line" id="L102">        self.total_operations = <span class="tok-number">0</span>;</span>
-<span class="line" id="L103">        self.min_duration = std.math.maxInt(<span class="tok-type">u64</span>);</span>
-<span class="line" id="L104">        self.max_duration = <span class="tok-number">0</span>;</span>
-<span class="line" id="L105">        self.total_duration = <span class="tok-number">0</span>;</span>
-<span class="line" id="L106">        self.durations.clearRetainingCapacity();</span>
-<span class="line" id="L107">    }</span>
-<span class="line" id="L108"></span>
-<span class="line" id="L109">    <span class="tok-comment">/// Returns the elapsed time since the benchmark started.</span></span>
-<span class="line" id="L110">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">elapsed</span>(self: *Benchmark) <span class="tok-type">u64</span> {</span>
-<span class="line" id="L111">        <span class="tok-kw">var</span> sum: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L112">        <span class="tok-kw">for</span> (self.durations.items) |duration| {</span>
-<span class="line" id="L113">            sum += duration;</span>
-<span class="line" id="L114">        }</span>
-<span class="line" id="L115">        <span class="tok-kw">return</span> sum;</span>
-<span class="line" id="L116">    }</span>
-<span class="line" id="L117"></span>
-<span class="line" id="L118">    <span class="tok-comment">/// Sets the total number of operations performed.</span></span>
-<span class="line" id="L119">    <span class="tok-comment">/// ops: Number of operations.</span></span>
-<span class="line" id="L120">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">setTotalOperations</span>(self: *Benchmark, ops: <span class="tok-type">usize</span>) <span class="tok-type">void</span> {</span>
-<span class="line" id="L121">        self.total_operations = ops;</span>
-<span class="line" id="L122">    }</span>
-<span class="line" id="L123"></span>
-<span class="line" id="L124">    <span class="tok-comment">/// Calculate the 75th, 99th and 99.5th percentiles of the durations. They represent the timings below</span></span>
-<span class="line" id="L125">    <span class="tok-comment">/// which 75%, 99% and 99.5% of the other measurments would lie (respectively) when timings are</span></span>
-<span class="line" id="L126">    <span class="tok-comment">/// sorted in increasing order.</span></span>
-<span class="line" id="L127">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">calculatePercentiles</span>(self: Benchmark) Percentiles {</span>
-<span class="line" id="L128">        <span class="tok-kw">if</span> (self.durations.items.len &lt; <span class="tok-number">2</span>) {</span>
-<span class="line" id="L129">            std.log.warn(<span class="tok-str">&quot;Insufficient data for percentile calculation.&quot;</span>, .{});</span>
-<span class="line" id="L130">            <span class="tok-kw">return</span> Percentiles{ .p75 = <span class="tok-number">0</span>, .p99 = <span class="tok-number">0</span>, .p995 = <span class="tok-number">0</span> };</span>
-<span class="line" id="L131">        }</span>
-<span class="line" id="L132"></span>
-<span class="line" id="L133">        <span class="tok-comment">// quickSort might fail with an empty input slice, so safety checks first</span>
+<span class="line" id="L100">        <span class="tok-kw">return</span> bench;</span>
+<span class="line" id="L101">    }</span>
+<span class="line" id="L102"></span>
+<span class="line" id="L103">    <span class="tok-comment">/// Starts or restarts the benchmark timer.</span></span>
+<span class="line" id="L104">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">start</span>(self: *Benchmark) <span class="tok-type">void</span> {</span>
+<span class="line" id="L105">        self.timer.reset();</span>
+<span class="line" id="L106">    }</span>
+<span class="line" id="L107"></span>
+<span class="line" id="L108">    <span class="tok-comment">/// Stop the benchmark and record the duration</span></span>
+<span class="line" id="L109">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">stop</span>(self: *Benchmark) <span class="tok-type">void</span> {</span>
+<span class="line" id="L110">        <span class="tok-kw">const</span> elapsedDuration = self.timer.read();</span>
+<span class="line" id="L111">        self.total_duration += elapsedDuration;</span>
+<span class="line" id="L112"></span>
+<span class="line" id="L113">        <span class="tok-kw">if</span> (elapsedDuration &lt; self.min_duration) self.min_duration = elapsedDuration;</span>
+<span class="line" id="L114">        <span class="tok-kw">if</span> (elapsedDuration &gt; self.max_duration) self.max_duration = elapsedDuration;</span>
+<span class="line" id="L115"></span>
+<span class="line" id="L116">        self.durations.append(elapsedDuration) <span class="tok-kw">catch</span> <span class="tok-kw">unreachable</span>;</span>
+<span class="line" id="L117">    }</span>
+<span class="line" id="L118"></span>
+<span class="line" id="L119">    <span class="tok-comment">/// Reset the benchmark</span></span>
+<span class="line" id="L120">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">reset</span>(self: *Benchmark) <span class="tok-type">void</span> {</span>
+<span class="line" id="L121">        self.total_operations = <span class="tok-number">0</span>;</span>
+<span class="line" id="L122">        self.min_duration = std.math.maxInt(<span class="tok-type">u64</span>);</span>
+<span class="line" id="L123">        self.max_duration = <span class="tok-number">0</span>;</span>
+<span class="line" id="L124">        self.total_duration = <span class="tok-number">0</span>;</span>
+<span class="line" id="L125">        self.durations.clearRetainingCapacity();</span>
+<span class="line" id="L126">    }</span>
+<span class="line" id="L127"></span>
+<span class="line" id="L128">    <span class="tok-comment">/// Returns the elapsed time since the benchmark started.</span></span>
+<span class="line" id="L129">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">elapsed</span>(self: *Benchmark) <span class="tok-type">u64</span> {</span>
+<span class="line" id="L130">        <span class="tok-kw">var</span> sum: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L131">        <span class="tok-kw">for</span> (self.durations.items) |duration| {</span>
+<span class="line" id="L132">            sum += duration;</span>
+<span class="line" id="L133">        }</span>
+<span class="line" id="L134">        <span class="tok-kw">return</span> sum;</span>
+<span class="line" id="L135">    }</span>
+<span class="line" id="L136"></span>
+<span class="line" id="L137">    <span class="tok-comment">/// Sets the total number of operations performed.</span></span>
+<span class="line" id="L138">    <span class="tok-comment">/// ops: Number of operations.</span></span>
+<span class="line" id="L139">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">setTotalOperations</span>(self: *Benchmark, ops: <span class="tok-type">usize</span>) <span class="tok-type">void</span> {</span>
+<span class="line" id="L140">        self.total_operations = ops;</span>
+<span class="line" id="L141">    }</span>
+<span class="line" id="L142"></span>
+<span class="line" id="L143">    <span class="tok-comment">/// Calculate the 75th, 99th and 99.5th percentiles of the durations. They represent the timings below</span></span>
+<span class="line" id="L144">    <span class="tok-comment">/// which 75%, 99% and 99.5% of the other measurments would lie (respectively) when timings are</span></span>
+<span class="line" id="L145">    <span class="tok-comment">/// sorted in increasing order.</span></span>
+<span class="line" id="L146">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">calculatePercentiles</span>(self: Benchmark) Percentiles {</span>
+<span class="line" id="L147">        <span class="tok-comment">// quickSort might fail with an empty input slice, so safety checks first</span>
 </span>
-<span class="line" id="L134">        <span class="tok-kw">const</span> len = self.durations.items.len;</span>
-<span class="line" id="L135">        <span class="tok-kw">var</span> lastIndex: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L136">        <span class="tok-kw">if</span> (len &gt; <span class="tok-number">1</span>) {</span>
-<span class="line" id="L137">            lastIndex = len - <span class="tok-number">1</span>;</span>
-<span class="line" id="L138">        }</span>
-<span class="line" id="L139">        quicksort.sort(<span class="tok-type">u64</span>, self.durations.items, <span class="tok-number">0</span>, lastIndex - <span class="tok-number">1</span>);</span>
-<span class="line" id="L140"></span>
-<span class="line" id="L141">        <span class="tok-kw">const</span> p75Index: <span class="tok-type">usize</span> = len * <span class="tok-number">75</span> / <span class="tok-number">100</span>;</span>
-<span class="line" id="L142">        <span class="tok-kw">const</span> p99Index: <span class="tok-type">usize</span> = len * <span class="tok-number">99</span> / <span class="tok-number">100</span>;</span>
-<span class="line" id="L143">        <span class="tok-kw">const</span> p995Index: <span class="tok-type">usize</span> = len * <span class="tok-number">995</span> / <span class="tok-number">1000</span>;</span>
-<span class="line" id="L144"></span>
-<span class="line" id="L145">        <span class="tok-kw">const</span> p75 = self.durations.items[p75Index];</span>
-<span class="line" id="L146">        <span class="tok-kw">const</span> p99 = self.durations.items[p99Index];</span>
-<span class="line" id="L147">        <span class="tok-kw">const</span> p995 = self.durations.items[p995Index];</span>
-<span class="line" id="L148"></span>
-<span class="line" id="L149">        <span class="tok-kw">return</span> Percentiles{ .p75 = p75, .p99 = p99, .p995 = p995 };</span>
-<span class="line" id="L150">    }</span>
-<span class="line" id="L151"></span>
-<span class="line" id="L152">    <span class="tok-comment">/// Calculate the average (more precisely arithmetic mean) of the durations</span></span>
-<span class="line" id="L153">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">calculateAverage</span>(self: Benchmark) <span class="tok-type">u64</span> {</span>
-<span class="line" id="L154">        <span class="tok-comment">// prevent division by zero</span>
-</span>
-<span class="line" id="L155">        <span class="tok-kw">const</span> len = self.durations.items.len;</span>
-<span class="line" id="L156">        <span class="tok-kw">if</span> (len == <span class="tok-number">0</span>) <span class="tok-kw">return</span> <span class="tok-number">0</span>;</span>
-<span class="line" id="L157"></span>
-<span class="line" id="L158">        <span class="tok-kw">var</span> sum: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L159">        <span class="tok-kw">for</span> (self.durations.items) |duration| {</span>
-<span class="line" id="L160">            sum += duration;</span>
-<span class="line" id="L161">        }</span>
-<span class="line" id="L162"></span>
-<span class="line" id="L163">        <span class="tok-kw">const</span> avg = sum / len;</span>
+<span class="line" id="L148">        <span class="tok-kw">if</span> (self.durations.items.len &lt;= <span class="tok-number">1</span>) {</span>
+<span class="line" id="L149">            std.log.warn(<span class="tok-str">&quot;Insufficient data for percentile calculation.&quot;</span>, .{});</span>
+<span class="line" id="L150">            <span class="tok-kw">return</span> Percentiles{ .p75 = <span class="tok-number">0</span>, .p99 = <span class="tok-number">0</span>, .p995 = <span class="tok-number">0</span> };</span>
+<span class="line" id="L151">        }</span>
+<span class="line" id="L152"></span>
+<span class="line" id="L153">        <span class="tok-kw">const</span> len = self.durations.items.len;</span>
+<span class="line" id="L154">        quicksort.sort(<span class="tok-type">u64</span>, self.durations.items, <span class="tok-number">0</span>, len - <span class="tok-number">1</span>);</span>
+<span class="line" id="L155"></span>
+<span class="line" id="L156">        <span class="tok-kw">const</span> p75 = self.durations.items[len * <span class="tok-number">75</span> / <span class="tok-number">100</span>];</span>
+<span class="line" id="L157">        <span class="tok-kw">const</span> p99 = self.durations.items[len * <span class="tok-number">99</span> / <span class="tok-number">100</span>];</span>
+<span class="line" id="L158">        <span class="tok-kw">const</span> p995 = self.durations.items[len * <span class="tok-number">995</span> / <span class="tok-number">1000</span>];</span>
+<span class="line" id="L159"></span>
+<span class="line" id="L160">        std.debug.assert(p75 &lt;= p99);</span>
+<span class="line" id="L161">        std.debug.assert(p99 &lt;= p995);</span>
+<span class="line" id="L162">        <span class="tok-kw">return</span> Percentiles{ .p75 = p75, .p99 = p99, .p995 = p995 };</span>
+<span class="line" id="L163">    }</span>
 <span class="line" id="L164"></span>
-<span class="line" id="L165">        <span class="tok-kw">return</span> avg;</span>
-<span class="line" id="L166">    }</span>
-<span class="line" id="L167"></span>
-<span class="line" id="L168">    <span class="tok-comment">/// Calculate the standard deviation of the durations. An estimate for the average *deviation*</span></span>
-<span class="line" id="L169">    <span class="tok-comment">/// from the average duration.</span></span>
-<span class="line" id="L170">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">calculateStd</span>(self: Benchmark) <span class="tok-type">u64</span> {</span>
-<span class="line" id="L171">        <span class="tok-kw">if</span> (self.durations.items.len &lt;= <span class="tok-number">1</span>) <span class="tok-kw">return</span> <span class="tok-number">0</span>;</span>
-<span class="line" id="L172"></span>
-<span class="line" id="L173">        <span class="tok-kw">const</span> avg = self.calculateAverage();</span>
-<span class="line" id="L174">        <span class="tok-kw">var</span> nvar: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L175">        <span class="tok-kw">for</span> (self.durations.items) |dur| {</span>
-<span class="line" id="L176">            <span class="tok-comment">// NOTE: With realistic real-life samples this will never overflow,</span>
+<span class="line" id="L165">    <span class="tok-comment">/// Calculate the average (more precisely arithmetic mean) of the durations</span></span>
+<span class="line" id="L166">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">calculateAverage</span>(self: Benchmark) <span class="tok-type">u64</span> {</span>
+<span class="line" id="L167">        <span class="tok-kw">if</span> (self.durations.items.len == <span class="tok-number">0</span>) <span class="tok-kw">return</span> <span class="tok-number">0</span>;</span>
+<span class="line" id="L168"></span>
+<span class="line" id="L169">        <span class="tok-kw">var</span> sum: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L170">        <span class="tok-kw">for</span> (self.durations.items) |d| sum += d;</span>
+<span class="line" id="L171">        <span class="tok-kw">return</span> sum / self.durations.items.len;</span>
+<span class="line" id="L172">    }</span>
+<span class="line" id="L173"></span>
+<span class="line" id="L174">    <span class="tok-comment">/// Calculate the standard deviation of the durations. An estimate for the average *deviation*</span></span>
+<span class="line" id="L175">    <span class="tok-comment">/// from the average duration.</span></span>
+<span class="line" id="L176">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">calculateStd</span>(self: Benchmark) <span class="tok-type">u64</span> {</span>
+<span class="line" id="L177">        <span class="tok-kw">if</span> (self.durations.items.len &lt;= <span class="tok-number">1</span>) <span class="tok-kw">return</span> <span class="tok-number">0</span>;</span>
+<span class="line" id="L178"></span>
+<span class="line" id="L179">        <span class="tok-comment">// We are using the non-biased estimator for the variance; sum(Xi - μ)^2 / (n - 1)</span>
 </span>
-<span class="line" id="L177">            <span class="tok-comment">// however a solution without bitcasts would still be cleaner</span>
+<span class="line" id="L180">        <span class="tok-kw">const</span> avg = self.calculateAverage();</span>
+<span class="line" id="L181">        <span class="tok-kw">var</span> nvar: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L182">        <span class="tok-kw">for</span> (self.durations.items) |dur| {</span>
+<span class="line" id="L183">            <span class="tok-kw">const</span> sd = <span class="tok-kw">if</span> (dur &lt; avg) avg - dur <span class="tok-kw">else</span> dur - avg;</span>
+<span class="line" id="L184">            nvar += sd * sd;</span>
+<span class="line" id="L185">        }</span>
+<span class="line" id="L186">        <span class="tok-kw">return</span> std.math.sqrt(nvar / (self.durations.items.len - <span class="tok-number">1</span>));</span>
+<span class="line" id="L187">    }</span>
+<span class="line" id="L188">};</span>
+<span class="line" id="L189"></span>
+<span class="line" id="L190"><span class="tok-comment">/// BenchFunc is a function type that represents a benchmark function.</span></span>
+<span class="line" id="L191"><span class="tok-comment">/// It takes a pointer to a Benchmark object.</span></span>
+<span class="line" id="L192"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> BenchFunc = <span class="tok-kw">fn</span> (*Benchmark) <span class="tok-type">void</span>;</span>
+<span class="line" id="L193"></span>
+<span class="line" id="L194"><span class="tok-comment">/// BenchmarkResult stores the resulting computed metrics/statistics from a benchmark</span></span>
+<span class="line" id="L195"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> BenchmarkResult = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L196">    <span class="tok-kw">const</span> Self = <span class="tok-builtin">@This</span>();</span>
+<span class="line" id="L197">    <span class="tok-kw">const</span> Color = c.Color;</span>
+<span class="line" id="L198"></span>
+<span class="line" id="L199">    <span class="tok-comment">/// Name of the benchmark</span></span>
+<span class="line" id="L200">    name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
+<span class="line" id="L201">    <span class="tok-comment">/// 75th, 99th and 99.5th percentiles of the recorded durations. They represent the timings below</span></span>
+<span class="line" id="L202">    <span class="tok-comment">/// which 75%, 99% and 99.5% of the other measurments would lie, respectively, when timings</span></span>
+<span class="line" id="L203">    <span class="tok-comment">/// are sorted in increasing order.</span></span>
+<span class="line" id="L204">    percentiles: Benchmark.Percentiles,</span>
+<span class="line" id="L205">    <span class="tok-comment">/// The average (more precisely arithmetic mean) of the recorded durations</span></span>
+<span class="line" id="L206">    avg_duration: <span class="tok-type">usize</span>,</span>
+<span class="line" id="L207">    <span class="tok-comment">/// The standard-deviation of the recorded durations (an estimate for the average *deviation* from</span></span>
+<span class="line" id="L208">    <span class="tok-comment">/// the average duration).</span></span>
+<span class="line" id="L209">    std_duration: <span class="tok-type">usize</span>,</span>
+<span class="line" id="L210">    <span class="tok-comment">/// The minimum among the recorded durations</span></span>
+<span class="line" id="L211">    min_duration: <span class="tok-type">usize</span>,</span>
+<span class="line" id="L212">    <span class="tok-comment">/// The maximum among the recorded durations</span></span>
+<span class="line" id="L213">    max_duration: <span class="tok-type">usize</span>,</span>
+<span class="line" id="L214">    <span class="tok-comment">/// The total amount of operations (or runs) performed of the benchmark</span></span>
+<span class="line" id="L215">    total_operations: <span class="tok-type">usize</span>,</span>
+<span class="line" id="L216">    <span class="tok-comment">/// Total time for all the operations (or runs) of the benchmark combined</span></span>
+<span class="line" id="L217">    total_time: <span class="tok-type">usize</span>,</span>
+<span class="line" id="L218"></span>
+<span class="line" id="L219">    <span class="tok-comment">/// Formats and prints the benchmark-result in a readable format.</span></span>
+<span class="line" id="L220">    <span class="tok-comment">/// writer: Type that has the associated method print (for example std.io.getStdOut.writer())</span></span>
+<span class="line" id="L221">    <span class="tok-comment">/// header: Whether to pretty-print the header or not</span></span>
+<span class="line" id="L222">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrint</span>(self: Self, writer: <span class="tok-kw">anytype</span>) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L223">        <span class="tok-kw">const</span> colors = <span class="tok-null">true</span>;</span>
+<span class="line" id="L224">        <span class="tok-kw">const</span> pc = self.percentiles;</span>
+<span class="line" id="L225">        <span class="tok-kw">try</span> format.prettyPrintName(self.name, writer);</span>
+<span class="line" id="L226">        <span class="tok-kw">try</span> setColor(colors, writer, Color.cyan);</span>
+<span class="line" id="L227">        <span class="tok-kw">try</span> format.prettyPrintTotalOperations(self.total_operations, writer);</span>
+<span class="line" id="L228">        <span class="tok-kw">try</span> format.prettyPrintTotalTime(self.total_time, writer);</span>
+<span class="line" id="L229">        <span class="tok-kw">try</span> setColor(colors, writer, Color.green);</span>
+<span class="line" id="L230">        <span class="tok-kw">try</span> format.prettyPrintAvgStd(self.avg_duration, self.std_duration, writer);</span>
+<span class="line" id="L231">        <span class="tok-kw">try</span> setColor(colors, writer, Color.blue);</span>
+<span class="line" id="L232">        <span class="tok-kw">try</span> format.prettyPrintMinMax(self.min_duration, self.max_duration, writer);</span>
+<span class="line" id="L233">        <span class="tok-kw">try</span> setColor(colors, writer, Color.cyan);</span>
+<span class="line" id="L234">        <span class="tok-kw">try</span> format.prettyPrintPercentiles(pc.p75, pc.p99, pc.p995, writer);</span>
+<span class="line" id="L235">        <span class="tok-kw">try</span> setColor(colors, writer, Color.reset);</span>
+<span class="line" id="L236">        <span class="tok-kw">try</span> writer.writeAll(<span class="tok-str">&quot;\n&quot;</span>);</span>
+<span class="line" id="L237">    }</span>
+<span class="line" id="L238"></span>
+<span class="line" id="L239">    <span class="tok-kw">fn</span> <span class="tok-fn">setColor</span>(colors: <span class="tok-type">bool</span>, writer: <span class="tok-kw">anytype</span>, color: Color) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L240">        <span class="tok-kw">if</span> (colors) <span class="tok-kw">try</span> writer.writeAll(color.code());</span>
+<span class="line" id="L241">    }</span>
+<span class="line" id="L242">};</span>
+<span class="line" id="L243"></span>
+<span class="line" id="L244"><span class="tok-comment">/// BenchmarkResults acts as a container for multiple benchmark results.</span></span>
+<span class="line" id="L245"><span class="tok-comment">/// It provides functionality to format and print these results.</span></span>
+<span class="line" id="L246"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> BenchmarkResults = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L247">    <span class="tok-kw">const</span> Color = c.Color;</span>
+<span class="line" id="L248">    <span class="tok-kw">const</span> BufferedStdoutWriter = std.io.BufferedWriter(<span class="tok-number">1024</span>, <span class="tok-builtin">@TypeOf</span>(std.io.getStdOut().writer()));</span>
+<span class="line" id="L249"></span>
+<span class="line" id="L250">    <span class="tok-comment">/// A dynamic list of BenchmarkResult objects.</span></span>
+<span class="line" id="L251">    results: std.ArrayList(BenchmarkResult),</span>
+<span class="line" id="L252">    <span class="tok-comment">/// A handle to a buffered stdout-writer. Used for printing-operations</span></span>
+<span class="line" id="L253">    out_stream: BufferedStdoutWriter,</span>
+<span class="line" id="L254"></span>
+<span class="line" id="L255">    <span class="tok-comment">// NOTE: This init function is technically not needed however it was added to circumvent a (most likely) bug</span>
 </span>
-<span class="line" id="L178">            <span class="tok-kw">const</span> d: <span class="tok-type">i64</span> = <span class="tok-builtin">@bitCast</span>(dur);</span>
-<span class="line" id="L179">            <span class="tok-kw">const</span> a: <span class="tok-type">i64</span> = <span class="tok-builtin">@bitCast</span>(avg);</span>
-<span class="line" id="L180"></span>
-<span class="line" id="L181">            nvar += <span class="tok-builtin">@bitCast</span>((d - a) * (d - a));</span>
-<span class="line" id="L182">        }</span>
-<span class="line" id="L183"></span>
-<span class="line" id="L184">        <span class="tok-comment">// We are using the non-biased estimator for the variance; sum(Xi - μ)^2 / (n - 1)</span>
+<span class="line" id="L256">    <span class="tok-comment">// in the 0.11.0 compiler (see issue #49). In the future we may want to remove this.</span>
 </span>
-<span class="line" id="L185">        <span class="tok-kw">return</span> std.math.sqrt(nvar / (self.durations.items.len - <span class="tok-number">1</span>));</span>
-<span class="line" id="L186">    }</span>
-<span class="line" id="L187">};</span>
-<span class="line" id="L188"></span>
-<span class="line" id="L189"><span class="tok-comment">/// BenchFunc is a function type that represents a benchmark function.</span></span>
-<span class="line" id="L190"><span class="tok-comment">/// It takes a pointer to a Benchmark object.</span></span>
-<span class="line" id="L191"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> BenchFunc = <span class="tok-kw">fn</span> (*Benchmark) <span class="tok-type">void</span>;</span>
-<span class="line" id="L192"></span>
-<span class="line" id="L193"><span class="tok-comment">/// BenchmarkResult stores the resulting computed metrics/statistics from a benchmark</span></span>
-<span class="line" id="L194"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> BenchmarkResult = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L195">    <span class="tok-kw">const</span> Self = <span class="tok-builtin">@This</span>();</span>
-<span class="line" id="L196">    <span class="tok-kw">const</span> Color = c.Color;</span>
-<span class="line" id="L197"></span>
-<span class="line" id="L198">    <span class="tok-comment">/// Name of the benchmark</span></span>
-<span class="line" id="L199">    name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
-<span class="line" id="L200">    <span class="tok-comment">/// 75th, 99th and 99.5th percentiles of the recorded durations. They represent the timings below</span></span>
-<span class="line" id="L201">    <span class="tok-comment">/// which 75%, 99% and 99.5% of the other measurments would lie, respectively, when timings</span></span>
-<span class="line" id="L202">    <span class="tok-comment">/// are sorted in increasing order.</span></span>
-<span class="line" id="L203">    percentiles: Benchmark.Percentiles,</span>
-<span class="line" id="L204">    <span class="tok-comment">/// The average (more precisely arithmetic mean) of the recorded durations</span></span>
-<span class="line" id="L205">    avg_duration: <span class="tok-type">usize</span>,</span>
-<span class="line" id="L206">    <span class="tok-comment">/// The standard-deviation of the recorded durations (an estimate for the average *deviation* from</span></span>
-<span class="line" id="L207">    <span class="tok-comment">/// the average duration).</span></span>
-<span class="line" id="L208">    std_duration: <span class="tok-type">usize</span>,</span>
-<span class="line" id="L209">    <span class="tok-comment">/// The minimum among the recorded durations</span></span>
-<span class="line" id="L210">    min_duration: <span class="tok-type">usize</span>,</span>
-<span class="line" id="L211">    <span class="tok-comment">/// The maximum among the recorded durations</span></span>
-<span class="line" id="L212">    max_duration: <span class="tok-type">usize</span>,</span>
-<span class="line" id="L213">    <span class="tok-comment">/// The total amount of operations (or runs) performed of the benchmark</span></span>
-<span class="line" id="L214">    total_operations: <span class="tok-type">usize</span>,</span>
-<span class="line" id="L215">    <span class="tok-comment">/// Total time for all the operations (or runs) of the benchmark combined</span></span>
-<span class="line" id="L216">    total_time: <span class="tok-type">usize</span>,</span>
-<span class="line" id="L217"></span>
-<span class="line" id="L218">    <span class="tok-comment">/// Formats and prints the benchmark-result in a readable format.</span></span>
-<span class="line" id="L219">    <span class="tok-comment">/// writer: Type that has the associated method print (for example std.io.getStdOut.writer())</span></span>
-<span class="line" id="L220">    <span class="tok-comment">/// header: Whether to pretty-print the header or not</span></span>
-<span class="line" id="L221">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrint</span>(self: Self, writer: <span class="tok-kw">anytype</span>, header: <span class="tok-type">bool</span>) !<span class="tok-type">void</span> {</span>
-<span class="line" id="L222">        <span class="tok-kw">if</span> (header) <span class="tok-kw">try</span> format.prettyPrintHeader(writer);</span>
-<span class="line" id="L223"></span>
-<span class="line" id="L224">        <span class="tok-kw">try</span> format.prettyPrintName(self.name, writer, Color.none);</span>
-<span class="line" id="L225">        <span class="tok-kw">try</span> format.prettyPrintTotalOperations(self.total_operations, writer, Color.cyan);</span>
-<span class="line" id="L226">        <span class="tok-kw">try</span> format.prettyPrintTotalTime(self.total_time, writer, Color.cyan);</span>
-<span class="line" id="L227">        <span class="tok-kw">try</span> format.prettyPrintAvgStd(self.avg_durations, self.std_durations, writer, Color.green);</span>
-<span class="line" id="L228">        <span class="tok-kw">try</span> format.prettyPrintMinMax(self.min_durations, self.max_durations, writer, Color.blue);</span>
-<span class="line" id="L229">        <span class="tok-kw">try</span> format.prettyPrintPercentiles(self.percentiles.p75, self.percentiles.p99, self.percentiles.p995, writer, Color.cyan);</span>
-<span class="line" id="L230"></span>
-<span class="line" id="L231">        _ = <span class="tok-kw">try</span> writer.write(<span class="tok-str">&quot;\n&quot;</span>);</span>
-<span class="line" id="L232">    }</span>
-<span class="line" id="L233">};</span>
-<span class="line" id="L234"></span>
-<span class="line" id="L235"><span class="tok-comment">/// Pretty-prints the header for the result pretty-print table</span></span>
-<span class="line" id="L236"><span class="tok-comment">/// writer: Type that has the associated method print (for example std.io.getStdOut.writer())</span></span>
-<span class="line" id="L237"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrintHeader</span>(writer: <span class="tok-kw">anytype</span>) !<span class="tok-type">void</span> {</span>
-<span class="line" id="L238">    <span class="tok-kw">try</span> writer.print(</span>
-<span class="line" id="L239">        <span class="tok-str">&quot;\n{s:&lt;22} {s:&lt;8} {s:&lt;14} {s:&lt;22} {s:&lt;28} {s:&lt;10} {s:&lt;10} {s:&lt;10}\n&quot;</span>,</span>
-<span class="line" id="L240">        .{ <span class="tok-str">&quot;benchmark&quot;</span>, <span class="tok-str">&quot;runs&quot;</span>, <span class="tok-str">&quot;total time&quot;</span>, <span class="tok-str">&quot;time/run (avg ± σ)&quot;</span>, <span class="tok-str">&quot;(min ... max)&quot;</span>, <span class="tok-str">&quot;p75&quot;</span>, <span class="tok-str">&quot;p99&quot;</span>, <span class="tok-str">&quot;p995&quot;</span> },</span>
-<span class="line" id="L241">    );</span>
-<span class="line" id="L242">    <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;-----------------------------------------------------------------------------------------------------------------------------\n&quot;</span>, .{});</span>
-<span class="line" id="L243">}</span>
-<span class="line" id="L244"></span>
-<span class="line" id="L245"><span class="tok-comment">/// BenchmarkResults acts as a container for multiple benchmark results.</span></span>
-<span class="line" id="L246"><span class="tok-comment">/// It provides functionality to format and print these results.</span></span>
-<span class="line" id="L247"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> BenchmarkResults = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L248">    <span class="tok-kw">const</span> Color = c.Color;</span>
-<span class="line" id="L249">    <span class="tok-kw">const</span> BufferedStdoutWriter = std.io.BufferedWriter(<span class="tok-number">1024</span>, <span class="tok-builtin">@TypeOf</span>(std.io.getStdOut().writer()));</span>
-<span class="line" id="L250"></span>
-<span class="line" id="L251">    <span class="tok-comment">/// A dynamic list of BenchmarkResult objects.</span></span>
-<span class="line" id="L252">    results: std.ArrayList(BenchmarkResult),</span>
-<span class="line" id="L253">    <span class="tok-comment">/// A handle to a buffered stdout-writer. Used for printing-operations</span></span>
-<span class="line" id="L254">    out_stream: BufferedStdoutWriter,</span>
-<span class="line" id="L255"></span>
-<span class="line" id="L256">    <span class="tok-comment">// NOTE: This init function is technically not needed however it was added to circumvent a (most likely) bug</span>
+<span class="line" id="L257">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">init</span>(results: std.ArrayList(BenchmarkResult)) BenchmarkResults {</span>
+<span class="line" id="L258">        <span class="tok-kw">return</span> BenchmarkResults{</span>
+<span class="line" id="L259">            .results = results,</span>
+<span class="line" id="L260">            .out_stream = .{ .unbuffered_writer = std.io.getStdOut().writer() },</span>
+<span class="line" id="L261">        };</span>
+<span class="line" id="L262">    }</span>
+<span class="line" id="L263"></span>
+<span class="line" id="L264">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">deinit</span>(self: *BenchmarkResults) <span class="tok-type">void</span> {</span>
+<span class="line" id="L265">        <span class="tok-comment">// self.out_stream.flush();</span>
 </span>
-<span class="line" id="L257">    <span class="tok-comment">// in the 0.11.0 compiler (see issue #49). In the future we may want to remove this.</span>
+<span class="line" id="L266">        self.results.deinit();</span>
+<span class="line" id="L267">    }</span>
+<span class="line" id="L268"></span>
+<span class="line" id="L269">    <span class="tok-comment">/// Formats and prints the benchmark results in a readable format.</span></span>
+<span class="line" id="L270">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrint</span>(self: *BenchmarkResults) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L271">        <span class="tok-kw">const</span> writer = self.out_stream.writer();</span>
+<span class="line" id="L272">        <span class="tok-kw">try</span> format.prettyPrintHeader(writer);</span>
+<span class="line" id="L273">        <span class="tok-kw">for</span> (self.results.items) |r| <span class="tok-kw">try</span> r.prettyPrint(writer);</span>
+<span class="line" id="L274">        <span class="tok-kw">try</span> self.out_stream.flush();</span>
+<span class="line" id="L275">    }</span>
+<span class="line" id="L276">};</span>
+<span class="line" id="L277"></span>
+<span class="line" id="L278"><span class="tok-comment">/// Executes a benchmark function within the context of a given Benchmark object.</span></span>
+<span class="line" id="L279"><span class="tok-comment">/// func: The benchmark function to be executed.</span></span>
+<span class="line" id="L280"><span class="tok-comment">/// bench: A pointer to a Benchmark object for tracking the benchmark.</span></span>
+<span class="line" id="L281"><span class="tok-comment">/// benchResult: A pointer to BenchmarkResults to store the results.</span></span>
+<span class="line" id="L282"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">run</span>(<span class="tok-kw">comptime</span> func: BenchFunc, bench: *Benchmark, benchResult: *BenchmarkResults) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L283">    <span class="tok-kw">defer</span> bench.durations.deinit();</span>
+<span class="line" id="L284">    <span class="tok-kw">const</span> MIN_DURATION = bench.config.time_budget; <span class="tok-comment">// minimum benchmark time in nanoseconds (1 second)</span>
 </span>
-<span class="line" id="L258">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">init</span>(results: std.ArrayList(BenchmarkResult)) BenchmarkResults {</span>
-<span class="line" id="L259">        <span class="tok-kw">return</span> BenchmarkResults{</span>
-<span class="line" id="L260">            .results = results,</span>
-<span class="line" id="L261">            .out_stream = .{ .unbuffered_writer = std.io.getStdOut().writer() },</span>
-<span class="line" id="L262">        };</span>
-<span class="line" id="L263">    }</span>
-<span class="line" id="L264"></span>
-<span class="line" id="L265">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">deinit</span>(self: *BenchmarkResults) <span class="tok-type">void</span> {</span>
-<span class="line" id="L266">        <span class="tok-comment">// self.out_stream.flush();</span>
+<span class="line" id="L285">    <span class="tok-kw">const</span> MAX_N = <span class="tok-number">65536</span>; <span class="tok-comment">// maximum number of executions for the final benchmark run</span>
 </span>
-<span class="line" id="L267">        self.results.deinit();</span>
-<span class="line" id="L268">    }</span>
-<span class="line" id="L269"></span>
-<span class="line" id="L270">    <span class="tok-comment">/// Determines the color representation based on the total-time of the benchmark.</span></span>
-<span class="line" id="L271">    <span class="tok-comment">/// total_time: The total-time to evaluate.</span></span>
-<span class="line" id="L272">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">getColor</span>(self: *<span class="tok-kw">const</span> BenchmarkResults, total_time: <span class="tok-type">u64</span>) Color {</span>
-<span class="line" id="L273">        <span class="tok-kw">const</span> max_total_time = <span class="tok-builtin">@max</span>(self.results.items[<span class="tok-number">0</span>].total_time, self.results.items[self.results.items.len - <span class="tok-number">1</span>].total_time);</span>
-<span class="line" id="L274">        <span class="tok-kw">const</span> min_total_time = <span class="tok-builtin">@min</span>(self.results.items[<span class="tok-number">0</span>].total_time, self.results.items[self.results.items.len - <span class="tok-number">1</span>].total_time);</span>
-<span class="line" id="L275"></span>
-<span class="line" id="L276">        <span class="tok-kw">if</span> (total_time &lt;= min_total_time) <span class="tok-kw">return</span> Color.green;</span>
-<span class="line" id="L277">        <span class="tok-kw">if</span> (total_time &gt;= max_total_time) <span class="tok-kw">return</span> Color.red;</span>
-<span class="line" id="L278"></span>
-<span class="line" id="L279">        <span class="tok-kw">const</span> prop = (total_time - min_total_time) * <span class="tok-number">100</span> / (max_total_time - min_total_time + <span class="tok-number">1</span>);</span>
-<span class="line" id="L280"></span>
-<span class="line" id="L281">        <span class="tok-kw">if</span> (prop &lt; <span class="tok-number">50</span>) <span class="tok-kw">return</span> Color.green;</span>
-<span class="line" id="L282">        <span class="tok-kw">if</span> (prop &lt; <span class="tok-number">75</span>) <span class="tok-kw">return</span> Color.yellow;</span>
-<span class="line" id="L283"></span>
-<span class="line" id="L284">        <span class="tok-kw">return</span> Color.red;</span>
-<span class="line" id="L285">    }</span>
-<span class="line" id="L286"></span>
-<span class="line" id="L287">    <span class="tok-comment">/// Formats and prints the benchmark results in a readable format.</span></span>
-<span class="line" id="L288">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrint</span>(self: *BenchmarkResults) !<span class="tok-type">void</span> {</span>
-<span class="line" id="L289">        <span class="tok-kw">var</span> writer = self.out_stream.writer();</span>
-<span class="line" id="L290">        <span class="tok-kw">try</span> format.prettyPrintHeader(writer);</span>
-<span class="line" id="L291">        <span class="tok-kw">for</span> (self.results.items) |result| {</span>
-<span class="line" id="L292">            <span class="tok-kw">try</span> format.prettyPrintName(result.name, writer, Color.none);</span>
-<span class="line" id="L293">            <span class="tok-kw">try</span> format.prettyPrintTotalOperations(result.total_operations, writer, Color.cyan);</span>
-<span class="line" id="L294">            <span class="tok-kw">try</span> format.prettyPrintTotalTime(result.total_time, writer, self.getColor(result.total_time));</span>
-<span class="line" id="L295">            <span class="tok-kw">try</span> format.prettyPrintAvgStd(result.avg_duration, result.std_duration, writer, Color.green);</span>
-<span class="line" id="L296">            <span class="tok-kw">try</span> format.prettyPrintMinMax(result.min_duration, result.max_duration, writer, Color.blue);</span>
-<span class="line" id="L297">            <span class="tok-kw">try</span> format.prettyPrintPercentiles(result.percentiles.p75, result.percentiles.p99, result.percentiles.p995, writer, Color.cyan);</span>
-<span class="line" id="L298"></span>
-<span class="line" id="L299">            _ = <span class="tok-kw">try</span> writer.write(<span class="tok-str">&quot;\n&quot;</span>);</span>
-<span class="line" id="L300">        }</span>
+<span class="line" id="L286">    <span class="tok-kw">const</span> MAX_ITERATIONS = bench.config.max_iterations; <span class="tok-comment">// Define a maximum number of iterations</span>
+</span>
+<span class="line" id="L287"></span>
+<span class="line" id="L288">    <span class="tok-kw">if</span> (bench.config.display_system_info) {</span>
+<span class="line" id="L289">        <span class="tok-kw">const</span> allocator = std.heap.page_allocator;</span>
+<span class="line" id="L290">        <span class="tok-kw">const</span> info = <span class="tok-kw">try</span> platform.getSystemInfo(allocator);</span>
+<span class="line" id="L291"></span>
+<span class="line" id="L292">        std.debug.print(</span>
+<span class="line" id="L293">            <span class="tok-str">\\</span></span>
+
+<span class="line" id="L294">            <span class="tok-str">\\  Operating System: {s}</span></span>
+
+<span class="line" id="L295">            <span class="tok-str">\\  CPU:              {s}</span></span>
+
+<span class="line" id="L296">            <span class="tok-str">\\  CPU Cores:        {d}</span></span>
+
+<span class="line" id="L297">            <span class="tok-str">\\  Total Memory:     {s}</span></span>
+
+<span class="line" id="L298">            <span class="tok-str">\\</span></span>
+
+<span class="line" id="L299">        , .{ info.platform, info.cpu, info.cpu_cores, info.memory_total });</span>
+<span class="line" id="L300">    }</span>
 <span class="line" id="L301"></span>
-<span class="line" id="L302">        <span class="tok-kw">try</span> self.out_stream.flush();</span>
-<span class="line" id="L303">    }</span>
-<span class="line" id="L304">};</span>
-<span class="line" id="L305"></span>
-<span class="line" id="L306"><span class="tok-comment">/// Executes a benchmark function within the context of a given Benchmark object.</span></span>
-<span class="line" id="L307"><span class="tok-comment">/// func: The benchmark function to be executed.</span></span>
-<span class="line" id="L308"><span class="tok-comment">/// bench: A pointer to a Benchmark object for tracking the benchmark.</span></span>
-<span class="line" id="L309"><span class="tok-comment">/// benchResult: A pointer to BenchmarkResults to store the results.</span></span>
-<span class="line" id="L310"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">run</span>(<span class="tok-kw">comptime</span> func: BenchFunc, bench: *Benchmark, benchResult: *BenchmarkResults) !<span class="tok-type">void</span> {</span>
-<span class="line" id="L311">    <span class="tok-kw">defer</span> bench.durations.deinit();</span>
-<span class="line" id="L312">    <span class="tok-kw">const</span> MIN_DURATION = bench.config.time_budget; <span class="tok-comment">// minimum benchmark time in nanoseconds (1 second)</span>
+<span class="line" id="L302">    <span class="tok-comment">// Call beforeAll hook if defined</span>
 </span>
-<span class="line" id="L313">    <span class="tok-kw">const</span> MAX_N = <span class="tok-number">65536</span>; <span class="tok-comment">// maximum number of executions for the final benchmark run</span>
+<span class="line" id="L303">    <span class="tok-kw">if</span> (bench.config.hooks.beforeAll) |hook| {</span>
+<span class="line" id="L304">        hook();</span>
+<span class="line" id="L305">    }</span>
+<span class="line" id="L306"></span>
+<span class="line" id="L307">    <span class="tok-kw">defer</span> {</span>
+<span class="line" id="L308">        <span class="tok-comment">// Call afterAll hook if defined</span>
 </span>
-<span class="line" id="L314">    <span class="tok-kw">const</span> MAX_ITERATIONS = bench.config.max_iterations; <span class="tok-comment">// Define a maximum number of iterations</span>
+<span class="line" id="L309">        <span class="tok-kw">if</span> (bench.config.hooks.afterAll) |hook| {</span>
+<span class="line" id="L310">            hook();</span>
+<span class="line" id="L311">        }</span>
+<span class="line" id="L312">    }</span>
+<span class="line" id="L313"></span>
+<span class="line" id="L314">    <span class="tok-kw">if</span> (bench.config.iterations != <span class="tok-number">0</span>) {</span>
+<span class="line" id="L315">        <span class="tok-comment">// If user-defined iterations are specified, use them directly</span>
 </span>
-<span class="line" id="L315"></span>
-<span class="line" id="L316">    <span class="tok-kw">if</span> (bench.config.display_system_info) {</span>
-<span class="line" id="L317">        <span class="tok-kw">const</span> allocator = std.heap.page_allocator;</span>
-<span class="line" id="L318">        <span class="tok-kw">const</span> info = <span class="tok-kw">try</span> platform.getSystemInfo(allocator);</span>
-<span class="line" id="L319"></span>
-<span class="line" id="L320">        std.debug.print(</span>
-<span class="line" id="L321">            <span class="tok-str">\\</span></span>
-
-<span class="line" id="L322">            <span class="tok-str">\\  Operating System: {s}</span></span>
-
-<span class="line" id="L323">            <span class="tok-str">\\  CPU:              {s}</span></span>
-
-<span class="line" id="L324">            <span class="tok-str">\\  CPU Cores:        {d}</span></span>
-
-<span class="line" id="L325">            <span class="tok-str">\\  Total Memory:     {s}</span></span>
-
-<span class="line" id="L326">            <span class="tok-str">\\</span></span>
-
-<span class="line" id="L327">        , .{ info.platform, info.cpu, info.cpu_cores, info.memory_total });</span>
-<span class="line" id="L328">    }</span>
-<span class="line" id="L329"></span>
-<span class="line" id="L330">    <span class="tok-kw">if</span> (bench.config.iterations != <span class="tok-number">0</span>) {</span>
-<span class="line" id="L331">        <span class="tok-comment">// If user-defined iterations are specified, use them directly</span>
+<span class="line" id="L316">        bench.N = bench.config.iterations;</span>
+<span class="line" id="L317">    } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L318">        bench.N = <span class="tok-number">1</span>; <span class="tok-comment">// initial value; will be updated...</span>
 </span>
-<span class="line" id="L332">        bench.N = bench.config.iterations;</span>
-<span class="line" id="L333">    } <span class="tok-kw">else</span> {</span>
-<span class="line" id="L334">        bench.N = <span class="tok-number">1</span>; <span class="tok-comment">// initial value; will be updated...</span>
+<span class="line" id="L319">        <span class="tok-kw">var</span> duration: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L320">        <span class="tok-kw">var</span> iterations: <span class="tok-type">usize</span> = <span class="tok-number">0</span>; <span class="tok-comment">// Add an iterations counter</span>
 </span>
-<span class="line" id="L335">        <span class="tok-kw">var</span> duration: <span class="tok-type">u64</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L336">        <span class="tok-kw">var</span> iterations: <span class="tok-type">usize</span> = <span class="tok-number">0</span>; <span class="tok-comment">// Add an iterations counter</span>
+<span class="line" id="L321"></span>
+<span class="line" id="L322">        <span class="tok-comment">// increase N until we've run for a sufficiently long time or exceeded max_iterations</span>
 </span>
-<span class="line" id="L337"></span>
-<span class="line" id="L338">        <span class="tok-comment">// increase N until we've run for a sufficiently long time or exceeded max_iterations</span>
+<span class="line" id="L323">        <span class="tok-kw">while</span> (duration &lt; MIN_DURATION <span class="tok-kw">and</span> iterations &lt; MAX_ITERATIONS) {</span>
+<span class="line" id="L324">            bench.reset();</span>
+<span class="line" id="L325"></span>
+<span class="line" id="L326">            bench.start();</span>
+<span class="line" id="L327">            <span class="tok-kw">var</span> j: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L328">            <span class="tok-kw">while</span> (j &lt; bench.N) : (j += <span class="tok-number">1</span>) {</span>
+<span class="line" id="L329">                func(bench);</span>
+<span class="line" id="L330">            }</span>
+<span class="line" id="L331"></span>
+<span class="line" id="L332">            bench.stop();</span>
+<span class="line" id="L333">            <span class="tok-comment">// double N for next iteration</span>
 </span>
-<span class="line" id="L339">        <span class="tok-kw">while</span> (duration &lt; MIN_DURATION <span class="tok-kw">and</span> iterations &lt; MAX_ITERATIONS) {</span>
-<span class="line" id="L340">            bench.reset();</span>
-<span class="line" id="L341"></span>
-<span class="line" id="L342">            bench.start();</span>
-<span class="line" id="L343">            <span class="tok-kw">var</span> j: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L344">            <span class="tok-kw">while</span> (j &lt; bench.N) : (j += <span class="tok-number">1</span>) {</span>
-<span class="line" id="L345">                func(bench);</span>
-<span class="line" id="L346">            }</span>
-<span class="line" id="L347"></span>
-<span class="line" id="L348">            bench.stop();</span>
-<span class="line" id="L349">            <span class="tok-comment">// double N for next iteration</span>
+<span class="line" id="L334">            <span class="tok-kw">if</span> (bench.N &lt; MAX_N / <span class="tok-number">2</span>) {</span>
+<span class="line" id="L335">                bench.N *= <span class="tok-number">2</span>;</span>
+<span class="line" id="L336">            } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L337">                bench.N = MAX_N;</span>
+<span class="line" id="L338">            }</span>
+<span class="line" id="L339"></span>
+<span class="line" id="L340">            iterations += <span class="tok-number">1</span>; <span class="tok-comment">// Increase the iteration counter</span>
 </span>
-<span class="line" id="L350">            <span class="tok-kw">if</span> (bench.N &lt; MAX_N / <span class="tok-number">2</span>) {</span>
-<span class="line" id="L351">                bench.N *= <span class="tok-number">2</span>;</span>
-<span class="line" id="L352">            } <span class="tok-kw">else</span> {</span>
-<span class="line" id="L353">                bench.N = MAX_N;</span>
-<span class="line" id="L354">            }</span>
-<span class="line" id="L355"></span>
-<span class="line" id="L356">            iterations += <span class="tok-number">1</span>; <span class="tok-comment">// Increase the iteration counter</span>
+<span class="line" id="L341">            duration += bench.elapsed(); <span class="tok-comment">// ...and duration</span>
 </span>
-<span class="line" id="L357">            duration += bench.elapsed(); <span class="tok-comment">// ...and duration</span>
+<span class="line" id="L342">        }</span>
+<span class="line" id="L343"></span>
+<span class="line" id="L344">        <span class="tok-comment">// Safety first: make sure the recorded durations aren't all-zero</span>
 </span>
-<span class="line" id="L358">        }</span>
-<span class="line" id="L359"></span>
-<span class="line" id="L360">        <span class="tok-comment">// Safety first: make sure the recorded durations aren't all-zero</span>
+<span class="line" id="L345">        <span class="tok-kw">if</span> (duration == <span class="tok-number">0</span>) duration = <span class="tok-number">1</span>;</span>
+<span class="line" id="L346"></span>
+<span class="line" id="L347">        <span class="tok-comment">// Adjust N based on the actual duration achieved</span>
 </span>
-<span class="line" id="L361">        <span class="tok-kw">if</span> (duration == <span class="tok-number">0</span>) duration = <span class="tok-number">1</span>;</span>
+<span class="line" id="L348">        bench.N = <span class="tok-builtin">@intCast</span>((bench.N * MIN_DURATION) / duration);</span>
+<span class="line" id="L349">        <span class="tok-comment">// check that N doesn't go out of bounds</span>
+</span>
+<span class="line" id="L350">        <span class="tok-kw">if</span> (bench.N == <span class="tok-number">0</span>) bench.N = <span class="tok-number">1</span>;</span>
+<span class="line" id="L351">        <span class="tok-kw">if</span> (bench.N &gt; MAX_N) bench.N = MAX_N;</span>
+<span class="line" id="L352">    }</span>
+<span class="line" id="L353"></span>
+<span class="line" id="L354">    <span class="tok-comment">// Now run the benchmark with the adjusted N value</span>
+</span>
+<span class="line" id="L355">    bench.reset();</span>
+<span class="line" id="L356">    <span class="tok-kw">var</span> j: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
+<span class="line" id="L357">    <span class="tok-kw">while</span> (j &lt; bench.N) : (j += <span class="tok-number">1</span>) {</span>
+<span class="line" id="L358">        <span class="tok-comment">// Call beforeEach hook if defined</span>
+</span>
+<span class="line" id="L359">        <span class="tok-kw">if</span> (bench.config.hooks.beforeEach) |hook| {</span>
+<span class="line" id="L360">            hook();</span>
+<span class="line" id="L361">        }</span>
 <span class="line" id="L362"></span>
-<span class="line" id="L363">        <span class="tok-comment">// Adjust N based on the actual duration achieved</span>
+<span class="line" id="L363">        bench.start();</span>
+<span class="line" id="L364">        func(bench);</span>
+<span class="line" id="L365">        bench.stop();</span>
+<span class="line" id="L366"></span>
+<span class="line" id="L367">        <span class="tok-comment">// Call afterEach hook if defined</span>
 </span>
-<span class="line" id="L364">        bench.N = <span class="tok-builtin">@intCast</span>((bench.N * MIN_DURATION) / duration);</span>
-<span class="line" id="L365">        <span class="tok-comment">// check that N doesn't go out of bounds</span>
-</span>
-<span class="line" id="L366">        <span class="tok-kw">if</span> (bench.N == <span class="tok-number">0</span>) bench.N = <span class="tok-number">1</span>;</span>
-<span class="line" id="L367">        <span class="tok-kw">if</span> (bench.N &gt; MAX_N) bench.N = MAX_N;</span>
-<span class="line" id="L368">    }</span>
-<span class="line" id="L369"></span>
-<span class="line" id="L370">    <span class="tok-comment">// Now run the benchmark with the adjusted N value</span>
-</span>
-<span class="line" id="L371">    bench.reset();</span>
-<span class="line" id="L372">    <span class="tok-kw">var</span> j: <span class="tok-type">usize</span> = <span class="tok-number">0</span>;</span>
-<span class="line" id="L373">    <span class="tok-kw">while</span> (j &lt; bench.N) : (j += <span class="tok-number">1</span>) {</span>
-<span class="line" id="L374">        bench.start();</span>
-<span class="line" id="L375">        func(bench);</span>
-<span class="line" id="L376">        bench.stop();</span>
-<span class="line" id="L377">    }</span>
-<span class="line" id="L378"></span>
-<span class="line" id="L379">    bench.setTotalOperations(bench.N);</span>
-<span class="line" id="L380"></span>
-<span class="line" id="L381">    <span class="tok-kw">const</span> elapsed = bench.elapsed();</span>
-<span class="line" id="L382">    <span class="tok-kw">try</span> benchResult.results.append(BenchmarkResult{</span>
-<span class="line" id="L383">        .name = bench.name,</span>
-<span class="line" id="L384">        .percentiles = bench.calculatePercentiles(),</span>
-<span class="line" id="L385">        .avg_duration = bench.calculateAverage(),</span>
-<span class="line" id="L386">        .std_duration = bench.calculateStd(),</span>
-<span class="line" id="L387">        .min_duration = bench.min_duration,</span>
-<span class="line" id="L388">        .max_duration = bench.max_duration,</span>
-<span class="line" id="L389">        .total_time = elapsed,</span>
-<span class="line" id="L390">        .total_operations = bench.total_operations,</span>
-<span class="line" id="L391">    });</span>
-<span class="line" id="L392">}</span>
-<span class="line" id="L393"></span>
+<span class="line" id="L368">        <span class="tok-kw">if</span> (bench.config.hooks.afterEach) |hook| {</span>
+<span class="line" id="L369">            hook();</span>
+<span class="line" id="L370">        }</span>
+<span class="line" id="L371">    }</span>
+<span class="line" id="L372"></span>
+<span class="line" id="L373">    bench.setTotalOperations(bench.N);</span>
+<span class="line" id="L374"></span>
+<span class="line" id="L375">    <span class="tok-kw">const</span> elapsed = bench.elapsed();</span>
+<span class="line" id="L376">    <span class="tok-kw">try</span> benchResult.results.append(BenchmarkResult{</span>
+<span class="line" id="L377">        .name = bench.name,</span>
+<span class="line" id="L378">        .percentiles = bench.calculatePercentiles(),</span>
+<span class="line" id="L379">        .avg_duration = bench.calculateAverage(),</span>
+<span class="line" id="L380">        .std_duration = bench.calculateStd(),</span>
+<span class="line" id="L381">        .min_duration = bench.min_duration,</span>
+<span class="line" id="L382">        .max_duration = bench.max_duration,</span>
+<span class="line" id="L383">        .total_time = elapsed,</span>
+<span class="line" id="L384">        .total_operations = bench.total_operations,</span>
+<span class="line" id="L385">    });</span>
+<span class="line" id="L386">}</span>
+<span class="line" id="L387"></span>
 </code></pre></body>
 </html>
