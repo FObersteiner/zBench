@@ -119,34 +119,28 @@
 <span class="line" id="L6">}</span>
 <span class="line" id="L7"></span>
 <span class="line" id="L8"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">getCpuCores</span>(allocator: std.mem.Allocator) !<span class="tok-type">u32</span> {</span>
-<span class="line" id="L9">    <span class="tok-kw">const</span> coresString = <span class="tok-kw">try</span> exec(allocator, &amp;.{ <span class="tok-str">&quot;sysctl&quot;</span>, <span class="tok-str">&quot;-n&quot;</span>, <span class="tok-str">&quot;hw.physicalcpu&quot;</span> });</span>
-<span class="line" id="L10">    <span class="tok-kw">defer</span> allocator.free(coresString);</span>
-<span class="line" id="L11"></span>
-<span class="line" id="L12">    <span class="tok-kw">return</span> std.fmt.parseInt(<span class="tok-type">u32</span>, coresString, <span class="tok-number">10</span>) <span class="tok-kw">catch</span> |err| {</span>
-<span class="line" id="L13">        log.err(<span class="tok-str">&quot;Error parsing CPU cores count: {}\n&quot;</span>, .{err});</span>
-<span class="line" id="L14">        <span class="tok-kw">return</span> err;</span>
-<span class="line" id="L15">    };</span>
-<span class="line" id="L16">}</span>
-<span class="line" id="L17"></span>
-<span class="line" id="L18"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">getTotalMemory</span>(allocator: std.mem.Allocator) !<span class="tok-type">u64</span> {</span>
-<span class="line" id="L19">    <span class="tok-kw">const</span> memSizeString = <span class="tok-kw">try</span> exec(allocator, &amp;.{ <span class="tok-str">&quot;sysctl&quot;</span>, <span class="tok-str">&quot;-n&quot;</span>, <span class="tok-str">&quot;hw.memsize&quot;</span> });</span>
-<span class="line" id="L20">    <span class="tok-kw">defer</span> allocator.free(memSizeString);</span>
-<span class="line" id="L21"></span>
-<span class="line" id="L22">    <span class="tok-comment">// Parse the string to a 64-bit unsigned integer</span>
-</span>
-<span class="line" id="L23">    <span class="tok-kw">return</span> std.fmt.parseInt(<span class="tok-type">u64</span>, memSizeString, <span class="tok-number">10</span>) <span class="tok-kw">catch</span> |err| {</span>
-<span class="line" id="L24">        log.err(<span class="tok-str">&quot;Error parsing total memory size: {}\n&quot;</span>, .{err});</span>
-<span class="line" id="L25">        <span class="tok-kw">return</span> err;</span>
-<span class="line" id="L26">    };</span>
-<span class="line" id="L27">}</span>
+<span class="line" id="L9">    <span class="tok-kw">const</span> str = <span class="tok-kw">try</span> exec(allocator, &amp;.{ <span class="tok-str">&quot;sysctl&quot;</span>, <span class="tok-str">&quot;-n&quot;</span>, <span class="tok-str">&quot;hw.physicalcpu&quot;</span> });</span>
+<span class="line" id="L10">    <span class="tok-kw">return</span> std.fmt.parseInt(<span class="tok-type">u32</span>, str, <span class="tok-number">10</span>) <span class="tok-kw">catch</span> |err| {</span>
+<span class="line" id="L11">        log.err(<span class="tok-str">&quot;Error parsing CPU cores count: {}\n&quot;</span>, .{err});</span>
+<span class="line" id="L12">        <span class="tok-kw">return</span> err;</span>
+<span class="line" id="L13">    };</span>
+<span class="line" id="L14">}</span>
+<span class="line" id="L15"></span>
+<span class="line" id="L16"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">getTotalMemory</span>(allocator: std.mem.Allocator) !<span class="tok-type">u64</span> {</span>
+<span class="line" id="L17">    <span class="tok-kw">const</span> str = <span class="tok-kw">try</span> exec(allocator, &amp;.{ <span class="tok-str">&quot;sysctl&quot;</span>, <span class="tok-str">&quot;-n&quot;</span>, <span class="tok-str">&quot;hw.memsize&quot;</span> });</span>
+<span class="line" id="L18">    <span class="tok-kw">return</span> std.fmt.parseInt(<span class="tok-type">u64</span>, str, <span class="tok-number">10</span>) <span class="tok-kw">catch</span> |err| {</span>
+<span class="line" id="L19">        log.err(<span class="tok-str">&quot;Error parsing total memory size: {}\n&quot;</span>, .{err});</span>
+<span class="line" id="L20">        <span class="tok-kw">return</span> err;</span>
+<span class="line" id="L21">    };</span>
+<span class="line" id="L22">}</span>
+<span class="line" id="L23"></span>
+<span class="line" id="L24"><span class="tok-kw">fn</span> <span class="tok-fn">exec</span>(allocator: std.mem.Allocator, args: []<span class="tok-kw">const</span> []<span class="tok-kw">const</span> <span class="tok-type">u8</span>) ![]<span class="tok-kw">const</span> <span class="tok-type">u8</span> {</span>
+<span class="line" id="L25">    <span class="tok-kw">const</span> stdout = (<span class="tok-kw">try</span> std.process.Child.exec(.{ .allocator = allocator, .argv = args })).stdout;</span>
+<span class="line" id="L26"></span>
+<span class="line" id="L27">    <span class="tok-kw">if</span> (stdout.len == <span class="tok-number">0</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.EmptyOutput;</span>
 <span class="line" id="L28"></span>
-<span class="line" id="L29"><span class="tok-kw">fn</span> <span class="tok-fn">exec</span>(allocator: std.mem.Allocator, args: []<span class="tok-kw">const</span> []<span class="tok-kw">const</span> <span class="tok-type">u8</span>) ![]<span class="tok-kw">const</span> <span class="tok-type">u8</span> {</span>
-<span class="line" id="L30">    <span class="tok-kw">const</span> stdout = (<span class="tok-kw">try</span> std.process.Child.exec(.{ .allocator = allocator, .argv = args })).stdout;</span>
+<span class="line" id="L29">    <span class="tok-kw">return</span> stdout[<span class="tok-number">0</span> .. stdout.len - <span class="tok-number">1</span>];</span>
+<span class="line" id="L30">}</span>
 <span class="line" id="L31"></span>
-<span class="line" id="L32">    <span class="tok-kw">if</span> (stdout.len == <span class="tok-number">0</span>) <span class="tok-kw">return</span> <span class="tok-kw">error</span>.EmptyOutput;</span>
-<span class="line" id="L33"></span>
-<span class="line" id="L34">    <span class="tok-kw">return</span> stdout[<span class="tok-number">0</span> .. stdout.len - <span class="tok-number">1</span>];</span>
-<span class="line" id="L35">}</span>
-<span class="line" id="L36"></span>
 </code></pre></body>
 </html>
