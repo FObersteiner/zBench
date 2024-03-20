@@ -117,5 +117,19 @@
 <span class="line" id="L4"></span>
 <span class="line" id="L5"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Step = <span class="tok-kw">enum</span> { more };</span>
 <span class="line" id="L6"></span>
+<span class="line" id="L7"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Reading = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L8">    timing_ns: <span class="tok-type">u64</span>,</span>
+<span class="line" id="L9"></span>
+<span class="line" id="L10">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">init</span>(timing_ns: <span class="tok-type">u64</span>) Reading {</span>
+<span class="line" id="L11">        <span class="tok-kw">return</span> .{</span>
+<span class="line" id="L12">            .timing_ns = timing_ns,</span>
+<span class="line" id="L13">        };</span>
+<span class="line" id="L14">    }</span>
+<span class="line" id="L15">};</span>
+<span class="line" id="L16"></span>
+<span class="line" id="L17"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Readings = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L18">    timings_ns: []<span class="tok-type">u64</span>,</span>
+<span class="line" id="L19">};</span>
+<span class="line" id="L20"></span>
 </code></pre></body>
 </html>

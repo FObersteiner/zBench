@@ -117,186 +117,194 @@
 <span class="line" id="L4"></span>
 <span class="line" id="L5"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Error = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./runner/types.zig&quot;</span>).Error;</span>
 <span class="line" id="L6"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Step = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./runner/types.zig&quot;</span>).Step;</span>
-<span class="line" id="L7"><span class="tok-kw">const</span> Runner = <span class="tok-builtin">@This</span>();</span>
-<span class="line" id="L8"></span>
-<span class="line" id="L9"><span class="tok-kw">const</span> State = <span class="tok-kw">union</span>(<span class="tok-kw">enum</span>) {</span>
-<span class="line" id="L10">    preparing: Preparing,</span>
-<span class="line" id="L11">    running: Running,</span>
-<span class="line" id="L12"></span>
-<span class="line" id="L13">    <span class="tok-kw">const</span> Preparing = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L14">        <span class="tok-comment">/// Number of iterations to be performed in the benchmark.</span></span>
-<span class="line" id="L15">        N: <span class="tok-type">usize</span> = <span class="tok-number">1</span>,</span>
-<span class="line" id="L16"></span>
-<span class="line" id="L17">        <span class="tok-comment">/// Maximum number of iterations the benchmark can run. This limit helps</span></span>
-<span class="line" id="L18">        <span class="tok-comment">/// to avoid excessively long benchmark runs.</span></span>
-<span class="line" id="L19">        max_iterations: <span class="tok-type">u16</span>,</span>
-<span class="line" id="L20"></span>
-<span class="line" id="L21">        <span class="tok-comment">/// Time budget for the benchmark in nanoseconds. This value is used to</span></span>
-<span class="line" id="L22">        <span class="tok-comment">/// determine how long a single benchmark should be allowed to run</span></span>
-<span class="line" id="L23">        <span class="tok-comment">/// before concluding. Helps in avoiding long-running benchmarks.</span></span>
-<span class="line" id="L24">        time_budget_ns: <span class="tok-type">u64</span>,</span>
-<span class="line" id="L25"></span>
-<span class="line" id="L26">        <span class="tok-comment">/// How many more test runs to do before doubling N.</span></span>
-<span class="line" id="L27">        iterations_remaining: <span class="tok-type">usize</span> = <span class="tok-number">1</span>,</span>
+<span class="line" id="L7"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Reading = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./runner/types.zig&quot;</span>).Reading;</span>
+<span class="line" id="L8"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Readings = <span class="tok-builtin">@import</span>(<span class="tok-str">&quot;./runner/types.zig&quot;</span>).Readings;</span>
+<span class="line" id="L9"></span>
+<span class="line" id="L10"><span class="tok-kw">const</span> Runner = <span class="tok-builtin">@This</span>();</span>
+<span class="line" id="L11"></span>
+<span class="line" id="L12"><span class="tok-kw">const</span> State = <span class="tok-kw">union</span>(<span class="tok-kw">enum</span>) {</span>
+<span class="line" id="L13">    preparing: Preparing,</span>
+<span class="line" id="L14">    running: Running,</span>
+<span class="line" id="L15"></span>
+<span class="line" id="L16">    <span class="tok-kw">const</span> Preparing = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L17">        <span class="tok-comment">/// Number of iterations to be performed in the benchmark.</span></span>
+<span class="line" id="L18">        N: <span class="tok-type">usize</span> = <span class="tok-number">1</span>,</span>
+<span class="line" id="L19"></span>
+<span class="line" id="L20">        <span class="tok-comment">/// Maximum number of iterations the benchmark can run. This limit helps</span></span>
+<span class="line" id="L21">        <span class="tok-comment">/// to avoid excessively long benchmark runs.</span></span>
+<span class="line" id="L22">        max_iterations: <span class="tok-type">u16</span>,</span>
+<span class="line" id="L23"></span>
+<span class="line" id="L24">        <span class="tok-comment">/// Time budget for the benchmark in nanoseconds. This value is used to</span></span>
+<span class="line" id="L25">        <span class="tok-comment">/// determine how long a single benchmark should be allowed to run</span></span>
+<span class="line" id="L26">        <span class="tok-comment">/// before concluding. Helps in avoiding long-running benchmarks.</span></span>
+<span class="line" id="L27">        time_budget_ns: <span class="tok-type">u64</span>,</span>
 <span class="line" id="L28"></span>
-<span class="line" id="L29">        <span class="tok-comment">/// Time spent measuring the test's running time while calibrating,</span></span>
-<span class="line" id="L30">        <span class="tok-comment">/// calibration stops if it reaches time_budget_ns.</span></span>
-<span class="line" id="L31">        elapsed_ns: <span class="tok-type">u64</span> = <span class="tok-number">0</span>,</span>
-<span class="line" id="L32"></span>
-<span class="line" id="L33">        <span class="tok-comment">/// Number of countdowns done from increasing values of N, calibration</span></span>
-<span class="line" id="L34">        <span class="tok-comment">/// stops if it reaches max_iterations.</span></span>
-<span class="line" id="L35">        iteration_loops: <span class="tok-type">usize</span> = <span class="tok-number">0</span>,</span>
-<span class="line" id="L36">    };</span>
-<span class="line" id="L37"></span>
-<span class="line" id="L38">    <span class="tok-kw">const</span> Running = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L39">        <span class="tok-comment">/// Total number of iterations done.</span></span>
-<span class="line" id="L40">        iterations_count: <span class="tok-type">usize</span>,</span>
-<span class="line" id="L41"></span>
-<span class="line" id="L42">        <span class="tok-comment">/// Number of timings still to be performed in the benchmark.</span></span>
-<span class="line" id="L43">        iterations_remaining: <span class="tok-type">usize</span>,</span>
+<span class="line" id="L29">        <span class="tok-comment">/// How many more test runs to do before doubling N.</span></span>
+<span class="line" id="L30">        iterations_remaining: <span class="tok-type">usize</span> = <span class="tok-number">1</span>,</span>
+<span class="line" id="L31"></span>
+<span class="line" id="L32">        <span class="tok-comment">/// Time spent measuring the test's running time while calibrating,</span></span>
+<span class="line" id="L33">        <span class="tok-comment">/// calibration stops if it reaches time_budget_ns.</span></span>
+<span class="line" id="L34">        elapsed_ns: <span class="tok-type">u64</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L35"></span>
+<span class="line" id="L36">        <span class="tok-comment">/// Number of countdowns done from increasing values of N, calibration</span></span>
+<span class="line" id="L37">        <span class="tok-comment">/// stops if it reaches max_iterations.</span></span>
+<span class="line" id="L38">        iteration_loops: <span class="tok-type">usize</span> = <span class="tok-number">0</span>,</span>
+<span class="line" id="L39">    };</span>
+<span class="line" id="L40"></span>
+<span class="line" id="L41">    <span class="tok-kw">const</span> Running = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L42">        <span class="tok-comment">/// Total number of iterations done.</span></span>
+<span class="line" id="L43">        iterations_count: <span class="tok-type">usize</span>,</span>
 <span class="line" id="L44"></span>
-<span class="line" id="L45">        <span class="tok-comment">/// Array of timings collected.</span></span>
-<span class="line" id="L46">        timings_ns: []<span class="tok-type">u64</span>,</span>
-<span class="line" id="L47">    };</span>
-<span class="line" id="L48">};</span>
-<span class="line" id="L49"></span>
-<span class="line" id="L50">allocator: std.mem.Allocator,</span>
-<span class="line" id="L51">state: State,</span>
+<span class="line" id="L45">        <span class="tok-comment">/// Number of timings still to be performed in the benchmark.</span></span>
+<span class="line" id="L46">        iterations_remaining: <span class="tok-type">usize</span>,</span>
+<span class="line" id="L47"></span>
+<span class="line" id="L48">        <span class="tok-comment">/// Array of timings collected.</span></span>
+<span class="line" id="L49">        timings_ns: []<span class="tok-type">u64</span>,</span>
+<span class="line" id="L50">    };</span>
+<span class="line" id="L51">};</span>
 <span class="line" id="L52"></span>
-<span class="line" id="L53"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">init</span>(</span>
-<span class="line" id="L54">    allocator: std.mem.Allocator,</span>
-<span class="line" id="L55">    iterations: <span class="tok-type">u16</span>,</span>
-<span class="line" id="L56">    max_iterations: <span class="tok-type">u16</span>,</span>
-<span class="line" id="L57">    time_budget_ns: <span class="tok-type">u64</span>,</span>
-<span class="line" id="L58">) !Runner {</span>
-<span class="line" id="L59">    <span class="tok-kw">return</span> <span class="tok-kw">if</span> (iterations == <span class="tok-number">0</span>) .{</span>
-<span class="line" id="L60">        .allocator = allocator,</span>
-<span class="line" id="L61">        .state = .{ .preparing = .{</span>
-<span class="line" id="L62">            .max_iterations = max_iterations,</span>
-<span class="line" id="L63">            .time_budget_ns = time_budget_ns,</span>
-<span class="line" id="L64">        } },</span>
-<span class="line" id="L65">    } <span class="tok-kw">else</span> .{</span>
-<span class="line" id="L66">        .allocator = allocator,</span>
-<span class="line" id="L67">        .state = .{ .running = .{</span>
-<span class="line" id="L68">            .iterations_count = iterations,</span>
-<span class="line" id="L69">            .iterations_remaining = iterations,</span>
-<span class="line" id="L70">            .timings_ns = <span class="tok-kw">try</span> allocator.alloc(<span class="tok-type">u64</span>, iterations),</span>
-<span class="line" id="L71">        } },</span>
-<span class="line" id="L72">    };</span>
-<span class="line" id="L73">}</span>
-<span class="line" id="L74"></span>
-<span class="line" id="L75"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">next</span>(self: *Runner, ns: <span class="tok-type">u64</span>) Runner.Error!?Runner.Step {</span>
-<span class="line" id="L76">    <span class="tok-kw">const</span> MAX_N = <span class="tok-number">65536</span>;</span>
-<span class="line" id="L77">    <span class="tok-kw">switch</span> (self.state) {</span>
-<span class="line" id="L78">        .preparing =&gt; |*st| {</span>
-<span class="line" id="L79">            <span class="tok-kw">if</span> (st.elapsed_ns &lt; st.time_budget_ns <span class="tok-kw">and</span> st.iteration_loops &lt; st.max_iterations) {</span>
-<span class="line" id="L80">                st.elapsed_ns += ns;</span>
-<span class="line" id="L81">                <span class="tok-kw">if</span> (st.iterations_remaining == <span class="tok-number">0</span>) {</span>
-<span class="line" id="L82">                    <span class="tok-comment">// double N for next iteration</span>
+<span class="line" id="L53">allocator: std.mem.Allocator,</span>
+<span class="line" id="L54">state: State,</span>
+<span class="line" id="L55"></span>
+<span class="line" id="L56"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">init</span>(</span>
+<span class="line" id="L57">    allocator: std.mem.Allocator,</span>
+<span class="line" id="L58">    iterations: <span class="tok-type">u16</span>,</span>
+<span class="line" id="L59">    max_iterations: <span class="tok-type">u16</span>,</span>
+<span class="line" id="L60">    time_budget_ns: <span class="tok-type">u64</span>,</span>
+<span class="line" id="L61">) Error!Runner {</span>
+<span class="line" id="L62">    <span class="tok-kw">return</span> <span class="tok-kw">if</span> (iterations == <span class="tok-number">0</span>) .{</span>
+<span class="line" id="L63">        .allocator = allocator,</span>
+<span class="line" id="L64">        .state = .{ .preparing = .{</span>
+<span class="line" id="L65">            .max_iterations = max_iterations,</span>
+<span class="line" id="L66">            .time_budget_ns = time_budget_ns,</span>
+<span class="line" id="L67">        } },</span>
+<span class="line" id="L68">    } <span class="tok-kw">else</span> .{</span>
+<span class="line" id="L69">        .allocator = allocator,</span>
+<span class="line" id="L70">        .state = .{ .running = .{</span>
+<span class="line" id="L71">            .iterations_count = iterations,</span>
+<span class="line" id="L72">            .iterations_remaining = iterations,</span>
+<span class="line" id="L73">            .timings_ns = <span class="tok-kw">try</span> allocator.alloc(<span class="tok-type">u64</span>, iterations),</span>
+<span class="line" id="L74">        } },</span>
+<span class="line" id="L75">    };</span>
+<span class="line" id="L76">}</span>
+<span class="line" id="L77"></span>
+<span class="line" id="L78"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">next</span>(self: *Runner, reading: Reading) Error!?Step {</span>
+<span class="line" id="L79">    <span class="tok-kw">const</span> MAX_N = <span class="tok-number">65536</span>;</span>
+<span class="line" id="L80">    <span class="tok-kw">switch</span> (self.state) {</span>
+<span class="line" id="L81">        .preparing =&gt; |*st| {</span>
+<span class="line" id="L82">            <span class="tok-kw">if</span> (st.elapsed_ns &lt; st.time_budget_ns <span class="tok-kw">and</span> st.iteration_loops &lt; st.max_iterations) {</span>
+<span class="line" id="L83">                st.elapsed_ns += reading.timing_ns;</span>
+<span class="line" id="L84">                <span class="tok-kw">if</span> (st.iterations_remaining == <span class="tok-number">0</span>) {</span>
+<span class="line" id="L85">                    <span class="tok-comment">// double N for next iteration</span>
 </span>
-<span class="line" id="L83">                    st.N = <span class="tok-builtin">@min</span>(st.N * <span class="tok-number">2</span>, MAX_N);</span>
-<span class="line" id="L84">                    st.iterations_remaining = st.N - <span class="tok-number">1</span>;</span>
-<span class="line" id="L85">                    st.iteration_loops += <span class="tok-number">1</span>;</span>
-<span class="line" id="L86">                } <span class="tok-kw">else</span> {</span>
-<span class="line" id="L87">                    st.iterations_remaining -= <span class="tok-number">1</span>;</span>
-<span class="line" id="L88">                }</span>
-<span class="line" id="L89">            } <span class="tok-kw">else</span> {</span>
-<span class="line" id="L90">                <span class="tok-comment">// Safety first: make sure the recorded durations aren't all-zero</span>
+<span class="line" id="L86">                    st.N = <span class="tok-builtin">@min</span>(st.N * <span class="tok-number">2</span>, MAX_N);</span>
+<span class="line" id="L87">                    st.iterations_remaining = st.N - <span class="tok-number">1</span>;</span>
+<span class="line" id="L88">                    st.iteration_loops += <span class="tok-number">1</span>;</span>
+<span class="line" id="L89">                } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L90">                    st.iterations_remaining -= <span class="tok-number">1</span>;</span>
+<span class="line" id="L91">                }</span>
+<span class="line" id="L92">            } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L93">                <span class="tok-comment">// Safety first: make sure the recorded durations aren't all-zero</span>
 </span>
-<span class="line" id="L91">                <span class="tok-kw">if</span> (st.elapsed_ns == <span class="tok-number">0</span>) st.elapsed_ns = <span class="tok-number">1</span>;</span>
-<span class="line" id="L92">                <span class="tok-comment">// Adjust N based on the actual duration achieved</span>
+<span class="line" id="L94">                <span class="tok-kw">if</span> (st.elapsed_ns == <span class="tok-number">0</span>) st.elapsed_ns = <span class="tok-number">1</span>;</span>
+<span class="line" id="L95">                <span class="tok-comment">// Adjust N based on the actual duration achieved</span>
 </span>
-<span class="line" id="L93">                <span class="tok-kw">var</span> N: <span class="tok-type">usize</span> = <span class="tok-builtin">@intCast</span>((st.N * st.time_budget_ns) / st.elapsed_ns);</span>
-<span class="line" id="L94">                <span class="tok-comment">// check that N doesn't go out of bounds</span>
+<span class="line" id="L96">                <span class="tok-kw">var</span> N: <span class="tok-type">usize</span> = <span class="tok-builtin">@intCast</span>((st.N * st.time_budget_ns) / st.elapsed_ns);</span>
+<span class="line" id="L97">                <span class="tok-comment">// check that N doesn't go out of bounds</span>
 </span>
-<span class="line" id="L95">                <span class="tok-kw">if</span> (N == <span class="tok-number">0</span>) N = <span class="tok-number">1</span>;</span>
-<span class="line" id="L96">                <span class="tok-kw">if</span> (N &gt; MAX_N) N = MAX_N;</span>
-<span class="line" id="L97">                <span class="tok-comment">// Now run the benchmark with the adjusted N value</span>
+<span class="line" id="L98">                <span class="tok-kw">if</span> (N == <span class="tok-number">0</span>) N = <span class="tok-number">1</span>;</span>
+<span class="line" id="L99">                <span class="tok-kw">if</span> (N &gt; MAX_N) N = MAX_N;</span>
+<span class="line" id="L100">                <span class="tok-comment">// Now run the benchmark with the adjusted N value</span>
 </span>
-<span class="line" id="L98">                self.state = .{ .running = .{</span>
-<span class="line" id="L99">                    .iterations_count = N,</span>
-<span class="line" id="L100">                    .iterations_remaining = N,</span>
-<span class="line" id="L101">                    .timings_ns = <span class="tok-kw">try</span> self.allocator.alloc(<span class="tok-type">u64</span>, N),</span>
-<span class="line" id="L102">                } };</span>
-<span class="line" id="L103">            }</span>
-<span class="line" id="L104">            <span class="tok-kw">return</span> .more;</span>
-<span class="line" id="L105">        },</span>
-<span class="line" id="L106">        .running =&gt; |*st| {</span>
-<span class="line" id="L107">            <span class="tok-kw">if</span> (<span class="tok-number">0</span> &lt; st.iterations_remaining) {</span>
-<span class="line" id="L108">                st.timings_ns[st.timings_ns.len - st.iterations_remaining] = ns;</span>
-<span class="line" id="L109">                st.iterations_remaining -= <span class="tok-number">1</span>;</span>
-<span class="line" id="L110">            }</span>
-<span class="line" id="L111">            <span class="tok-kw">return</span> <span class="tok-kw">if</span> (st.iterations_remaining == <span class="tok-number">0</span>) <span class="tok-null">null</span> <span class="tok-kw">else</span> .more;</span>
-<span class="line" id="L112">        },</span>
-<span class="line" id="L113">    }</span>
-<span class="line" id="L114">}</span>
-<span class="line" id="L115"></span>
-<span class="line" id="L116"><span class="tok-comment">/// The next() function has returned null and there are no more steps to</span></span>
-<span class="line" id="L117"><span class="tok-comment">/// complete, so get the timing results.</span></span>
-<span class="line" id="L118"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">finish</span>(self: *Runner) Runner.Error![]<span class="tok-type">u64</span> {</span>
-<span class="line" id="L119">    <span class="tok-kw">return</span> <span class="tok-kw">switch</span> (self.state) {</span>
-<span class="line" id="L120">        .preparing =&gt; &amp;.{},</span>
-<span class="line" id="L121">        .running =&gt; |st| st.timings_ns,</span>
-<span class="line" id="L122">    };</span>
-<span class="line" id="L123">}</span>
-<span class="line" id="L124"></span>
-<span class="line" id="L125"><span class="tok-comment">/// Clean up after an error.</span></span>
-<span class="line" id="L126"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">abort</span>(self: *Runner) <span class="tok-type">void</span> {</span>
-<span class="line" id="L127">    <span class="tok-kw">return</span> <span class="tok-kw">switch</span> (self.state) {</span>
-<span class="line" id="L128">        .preparing =&gt; {},</span>
-<span class="line" id="L129">        .running =&gt; |st| self.allocator.free(st.timings_ns),</span>
+<span class="line" id="L101">                self.state = .{ .running = .{</span>
+<span class="line" id="L102">                    .iterations_count = N,</span>
+<span class="line" id="L103">                    .iterations_remaining = N,</span>
+<span class="line" id="L104">                    .timings_ns = <span class="tok-kw">try</span> self.allocator.alloc(<span class="tok-type">u64</span>, N),</span>
+<span class="line" id="L105">                } };</span>
+<span class="line" id="L106">            }</span>
+<span class="line" id="L107">            <span class="tok-kw">return</span> .more;</span>
+<span class="line" id="L108">        },</span>
+<span class="line" id="L109">        .running =&gt; |*st| {</span>
+<span class="line" id="L110">            <span class="tok-kw">if</span> (<span class="tok-number">0</span> &lt; st.iterations_remaining) {</span>
+<span class="line" id="L111">                <span class="tok-kw">const</span> i = st.timings_ns.len - st.iterations_remaining;</span>
+<span class="line" id="L112">                st.timings_ns[i] = reading.timing_ns;</span>
+<span class="line" id="L113">                st.iterations_remaining -= <span class="tok-number">1</span>;</span>
+<span class="line" id="L114">            }</span>
+<span class="line" id="L115">            <span class="tok-kw">return</span> <span class="tok-kw">if</span> (st.iterations_remaining == <span class="tok-number">0</span>) <span class="tok-null">null</span> <span class="tok-kw">else</span> .more;</span>
+<span class="line" id="L116">        },</span>
+<span class="line" id="L117">    }</span>
+<span class="line" id="L118">}</span>
+<span class="line" id="L119"></span>
+<span class="line" id="L120"><span class="tok-comment">/// The next() function has returned null and there are no more steps to</span></span>
+<span class="line" id="L121"><span class="tok-comment">/// complete, so get the timing results.</span></span>
+<span class="line" id="L122"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">finish</span>(self: *Runner) Error!Readings {</span>
+<span class="line" id="L123">    <span class="tok-kw">return</span> <span class="tok-kw">switch</span> (self.state) {</span>
+<span class="line" id="L124">        .preparing =&gt; .{</span>
+<span class="line" id="L125">            .timings_ns = &amp;.{},</span>
+<span class="line" id="L126">        },</span>
+<span class="line" id="L127">        .running =&gt; |st| .{</span>
+<span class="line" id="L128">            .timings_ns = st.timings_ns,</span>
+<span class="line" id="L129">        },</span>
 <span class="line" id="L130">    };</span>
 <span class="line" id="L131">}</span>
 <span class="line" id="L132"></span>
-<span class="line" id="L133"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Status = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L134">    total_runs: <span class="tok-type">usize</span>,</span>
-<span class="line" id="L135">    completed_runs: <span class="tok-type">usize</span>,</span>
-<span class="line" id="L136">};</span>
-<span class="line" id="L137"></span>
-<span class="line" id="L138"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">status</span>(self: Runner) Status {</span>
-<span class="line" id="L139">    <span class="tok-kw">return</span> <span class="tok-kw">switch</span> (self.state) {</span>
-<span class="line" id="L140">        .preparing =&gt; |_| Status{</span>
-<span class="line" id="L141">            .total_runs = <span class="tok-number">0</span>,</span>
-<span class="line" id="L142">            .completed_runs = <span class="tok-number">0</span>,</span>
-<span class="line" id="L143">        },</span>
-<span class="line" id="L144">        .running =&gt; |st| Status{</span>
-<span class="line" id="L145">            .total_runs = st.iterations_count,</span>
-<span class="line" id="L146">            .completed_runs = st.iterations_count - st.iterations_remaining,</span>
-<span class="line" id="L147">        },</span>
-<span class="line" id="L148">    };</span>
-<span class="line" id="L149">}</span>
-<span class="line" id="L150"></span>
-<span class="line" id="L151"><span class="tok-kw">test</span> <span class="tok-str">&quot;Runner&quot;</span> {</span>
-<span class="line" id="L152">    <span class="tok-kw">var</span> r = <span class="tok-kw">try</span> Runner.init(std.testing.allocator, <span class="tok-number">0</span>, <span class="tok-number">16384</span>, <span class="tok-number">2e9</span>);</span>
-<span class="line" id="L153">    {</span>
-<span class="line" id="L154">        <span class="tok-kw">errdefer</span> r.abort();</span>
-<span class="line" id="L155">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L156">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L157">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L158">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L159">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L160">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L161">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L162">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L163">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L164">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L165">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L166">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L167">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L168">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L169">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L170">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L171">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L172">        <span class="tok-kw">try</span> expectEq(Runner.Step.more, <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L173">        <span class="tok-kw">try</span> expectEq(<span class="tok-builtin">@as</span>(?Runner.Step, <span class="tok-null">null</span>), <span class="tok-kw">try</span> r.next(<span class="tok-number">200_000_000</span>));</span>
-<span class="line" id="L174">    }</span>
-<span class="line" id="L175">    <span class="tok-kw">const</span> timings_ns = <span class="tok-kw">try</span> r.finish();</span>
-<span class="line" id="L176">    <span class="tok-kw">defer</span> std.testing.allocator.free(timings_ns);</span>
-<span class="line" id="L177">    <span class="tok-kw">try</span> expectEqSlices(<span class="tok-type">u64</span>, &amp;.{</span>
-<span class="line" id="L178">        <span class="tok-number">200_000_000</span>, <span class="tok-number">200_000_000</span>, <span class="tok-number">200_000_000</span>, <span class="tok-number">200_000_000</span>,</span>
-<span class="line" id="L179">        <span class="tok-number">200_000_000</span>, <span class="tok-number">200_000_000</span>, <span class="tok-number">200_000_000</span>, <span class="tok-number">200_000_000</span>,</span>
-<span class="line" id="L180">    }, timings_ns);</span>
-<span class="line" id="L181">}</span>
-<span class="line" id="L182"></span>
+<span class="line" id="L133"><span class="tok-comment">/// Clean up after an error.</span></span>
+<span class="line" id="L134"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">abort</span>(self: *Runner) <span class="tok-type">void</span> {</span>
+<span class="line" id="L135">    <span class="tok-kw">return</span> <span class="tok-kw">switch</span> (self.state) {</span>
+<span class="line" id="L136">        .preparing =&gt; {},</span>
+<span class="line" id="L137">        .running =&gt; |st| self.allocator.free(st.timings_ns),</span>
+<span class="line" id="L138">    };</span>
+<span class="line" id="L139">}</span>
+<span class="line" id="L140"></span>
+<span class="line" id="L141"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Status = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L142">    total_runs: <span class="tok-type">usize</span>,</span>
+<span class="line" id="L143">    completed_runs: <span class="tok-type">usize</span>,</span>
+<span class="line" id="L144">};</span>
+<span class="line" id="L145"></span>
+<span class="line" id="L146"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">status</span>(self: Runner) Status {</span>
+<span class="line" id="L147">    <span class="tok-kw">return</span> <span class="tok-kw">switch</span> (self.state) {</span>
+<span class="line" id="L148">        .preparing =&gt; |_| Status{</span>
+<span class="line" id="L149">            .total_runs = <span class="tok-number">0</span>,</span>
+<span class="line" id="L150">            .completed_runs = <span class="tok-number">0</span>,</span>
+<span class="line" id="L151">        },</span>
+<span class="line" id="L152">        .running =&gt; |st| Status{</span>
+<span class="line" id="L153">            .total_runs = st.iterations_count,</span>
+<span class="line" id="L154">            .completed_runs = st.iterations_count - st.iterations_remaining,</span>
+<span class="line" id="L155">        },</span>
+<span class="line" id="L156">    };</span>
+<span class="line" id="L157">}</span>
+<span class="line" id="L158"></span>
+<span class="line" id="L159"><span class="tok-kw">test</span> <span class="tok-str">&quot;Runner&quot;</span> {</span>
+<span class="line" id="L160">    <span class="tok-kw">var</span> r = <span class="tok-kw">try</span> Runner.init(std.testing.allocator, <span class="tok-number">0</span>, <span class="tok-number">16384</span>, <span class="tok-number">2e9</span>);</span>
+<span class="line" id="L161">    {</span>
+<span class="line" id="L162">        <span class="tok-kw">errdefer</span> r.abort();</span>
+<span class="line" id="L163">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L164">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L165">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L166">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L167">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L168">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L169">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L170">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L171">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L172">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L173">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L174">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L175">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L176">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L177">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L178">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L179">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L180">        <span class="tok-kw">try</span> expectEq(Step.more, <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L181">        <span class="tok-kw">try</span> expectEq(<span class="tok-builtin">@as</span>(?Step, <span class="tok-null">null</span>), <span class="tok-kw">try</span> r.next(Reading.init(<span class="tok-number">200_000_000</span>)));</span>
+<span class="line" id="L182">    }</span>
+<span class="line" id="L183">    <span class="tok-kw">const</span> result = <span class="tok-kw">try</span> r.finish();</span>
+<span class="line" id="L184">    <span class="tok-kw">defer</span> std.testing.allocator.free(result.timings_ns);</span>
+<span class="line" id="L185">    <span class="tok-kw">try</span> expectEqSlices(<span class="tok-type">u64</span>, &amp;.{</span>
+<span class="line" id="L186">        <span class="tok-number">200_000_000</span>, <span class="tok-number">200_000_000</span>, <span class="tok-number">200_000_000</span>, <span class="tok-number">200_000_000</span>,</span>
+<span class="line" id="L187">        <span class="tok-number">200_000_000</span>, <span class="tok-number">200_000_000</span>, <span class="tok-number">200_000_000</span>, <span class="tok-number">200_000_000</span>,</span>
+<span class="line" id="L188">    }, result.timings_ns);</span>
+<span class="line" id="L189">}</span>
+<span class="line" id="L190"></span>
 </code></pre></body>
 </html>
