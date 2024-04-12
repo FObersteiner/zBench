@@ -171,37 +171,29 @@
 <span class="line" id="L58">            }</span>
 <span class="line" id="L59">        }</span>
 <span class="line" id="L60">    }</span>
-<span class="line" id="L61"></span>
-<span class="line" id="L62">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">sort</span>(self: *Readings) <span class="tok-type">void</span> {</span>
-<span class="line" id="L63">        std.sort.heap(<span class="tok-type">u64</span>, self.timings_ns, {}, std.sort.asc(<span class="tok-type">u64</span>));</span>
-<span class="line" id="L64">        <span class="tok-kw">if</span> (self.allocations) |allocs| {</span>
-<span class="line" id="L65">            std.sort.heap(<span class="tok-type">usize</span>, allocs.maxes, {}, std.sort.asc(<span class="tok-type">usize</span>));</span>
-<span class="line" id="L66">            std.sort.heap(<span class="tok-type">usize</span>, allocs.counts, {}, std.sort.asc(<span class="tok-type">usize</span>));</span>
-<span class="line" id="L67">        }</span>
-<span class="line" id="L68">    }</span>
-<span class="line" id="L69">};</span>
-<span class="line" id="L70"></span>
-<span class="line" id="L71"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> AllocationReading = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L72">    max: <span class="tok-type">usize</span>,</span>
-<span class="line" id="L73">    count: <span class="tok-type">usize</span>,</span>
-<span class="line" id="L74">};</span>
-<span class="line" id="L75"></span>
-<span class="line" id="L76"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> AllocationReadings = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L77">    maxes: []<span class="tok-type">usize</span>,</span>
-<span class="line" id="L78">    counts: []<span class="tok-type">usize</span>,</span>
-<span class="line" id="L79"></span>
-<span class="line" id="L80">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">init</span>(allocator: std.mem.Allocator, n: <span class="tok-type">usize</span>) !AllocationReadings {</span>
-<span class="line" id="L81">        <span class="tok-kw">return</span> AllocationReadings{</span>
-<span class="line" id="L82">            .maxes = <span class="tok-kw">try</span> allocator.alloc(<span class="tok-type">usize</span>, n),</span>
-<span class="line" id="L83">            .counts = <span class="tok-kw">try</span> allocator.alloc(<span class="tok-type">usize</span>, n),</span>
-<span class="line" id="L84">        };</span>
-<span class="line" id="L85">    }</span>
-<span class="line" id="L86"></span>
-<span class="line" id="L87">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">deinit</span>(self: AllocationReadings, allocator: std.mem.Allocator) <span class="tok-type">void</span> {</span>
-<span class="line" id="L88">        allocator.free(self.maxes);</span>
-<span class="line" id="L89">        allocator.free(self.counts);</span>
-<span class="line" id="L90">    }</span>
-<span class="line" id="L91">};</span>
-<span class="line" id="L92"></span>
+<span class="line" id="L61">};</span>
+<span class="line" id="L62"></span>
+<span class="line" id="L63"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> AllocationReading = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L64">    max: <span class="tok-type">usize</span>,</span>
+<span class="line" id="L65">    count: <span class="tok-type">usize</span>,</span>
+<span class="line" id="L66">};</span>
+<span class="line" id="L67"></span>
+<span class="line" id="L68"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> AllocationReadings = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L69">    maxes: []<span class="tok-type">usize</span>,</span>
+<span class="line" id="L70">    counts: []<span class="tok-type">usize</span>,</span>
+<span class="line" id="L71"></span>
+<span class="line" id="L72">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">init</span>(allocator: std.mem.Allocator, n: <span class="tok-type">usize</span>) !AllocationReadings {</span>
+<span class="line" id="L73">        <span class="tok-kw">return</span> AllocationReadings{</span>
+<span class="line" id="L74">            .maxes = <span class="tok-kw">try</span> allocator.alloc(<span class="tok-type">usize</span>, n),</span>
+<span class="line" id="L75">            .counts = <span class="tok-kw">try</span> allocator.alloc(<span class="tok-type">usize</span>, n),</span>
+<span class="line" id="L76">        };</span>
+<span class="line" id="L77">    }</span>
+<span class="line" id="L78"></span>
+<span class="line" id="L79">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">deinit</span>(self: AllocationReadings, allocator: std.mem.Allocator) <span class="tok-type">void</span> {</span>
+<span class="line" id="L80">        allocator.free(self.maxes);</span>
+<span class="line" id="L81">        allocator.free(self.counts);</span>
+<span class="line" id="L82">    }</span>
+<span class="line" id="L83">};</span>
+<span class="line" id="L84"></span>
 </code></pre></body>
 </html>

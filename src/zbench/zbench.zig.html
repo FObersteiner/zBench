@@ -351,117 +351,119 @@
 <span class="line" id="L234">                <span class="tok-kw">defer</span> self.remaining = self.remaining[<span class="tok-number">1</span>..];</span>
 <span class="line" id="L235">                <span class="tok-kw">if</span> (self.remaining[<span class="tok-number">0</span>].config.hooks.after_all) |hook| hook();</span>
 <span class="line" id="L236">                <span class="tok-kw">return</span> Step{ .result = <span class="tok-kw">try</span> Result.init(</span>
-<span class="line" id="L237">                    self.allocator,</span>
-<span class="line" id="L238">                    self.remaining[<span class="tok-number">0</span>].name,</span>
-<span class="line" id="L239">                    <span class="tok-kw">try</span> runner.finish(),</span>
-<span class="line" id="L240">                ) };</span>
-<span class="line" id="L241">            }</span>
-<span class="line" id="L242">        }</span>
-<span class="line" id="L243"></span>
-<span class="line" id="L244">        <span class="tok-comment">/// Clean up the iterator if an error has occurred.</span></span>
-<span class="line" id="L245">        <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">abort</span>(self: *Iterator) <span class="tok-type">void</span> {</span>
-<span class="line" id="L246">            <span class="tok-kw">if</span> (self.runner) |*r| {</span>
-<span class="line" id="L247">                <span class="tok-kw">if</span> (self.remaining[<span class="tok-number">0</span>].config.hooks.after_all) |hook| hook();</span>
-<span class="line" id="L248">                r.abort();</span>
-<span class="line" id="L249">            }</span>
-<span class="line" id="L250">        }</span>
-<span class="line" id="L251">    };</span>
-<span class="line" id="L252"></span>
-<span class="line" id="L253">    <span class="tok-comment">/// Run all benchmarks using an iterator, collecting progress information</span></span>
-<span class="line" id="L254">    <span class="tok-comment">/// incrementally.</span></span>
-<span class="line" id="L255">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">iterator</span>(self: *<span class="tok-kw">const</span> Benchmark) !Iterator {</span>
-<span class="line" id="L256">        <span class="tok-kw">return</span> Iterator{</span>
-<span class="line" id="L257">            .allocator = self.allocator,</span>
-<span class="line" id="L258">            .b = self,</span>
-<span class="line" id="L259">            .remaining = self.benchmarks.items,</span>
-<span class="line" id="L260">            .runner = <span class="tok-null">null</span>,</span>
-<span class="line" id="L261">        };</span>
-<span class="line" id="L262">    }</span>
-<span class="line" id="L263"></span>
-<span class="line" id="L264">    <span class="tok-comment">/// Run all benchmarks and collect timing information.</span></span>
-<span class="line" id="L265">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">run</span>(self: Benchmark, writer: <span class="tok-kw">anytype</span>) !<span class="tok-type">void</span> {</span>
-<span class="line" id="L266">        <span class="tok-kw">var</span> progress = std.Progress{};</span>
-<span class="line" id="L267">        <span class="tok-kw">const</span> progress_node = progress.start(<span class="tok-str">&quot;&quot;</span>, <span class="tok-number">0</span>);</span>
-<span class="line" id="L268">        <span class="tok-kw">defer</span> progress_node.end();</span>
-<span class="line" id="L269"></span>
-<span class="line" id="L270">        <span class="tok-kw">try</span> prettyPrintHeader(writer);</span>
-<span class="line" id="L271">        <span class="tok-kw">var</span> iter = <span class="tok-kw">try</span> self.iterator();</span>
-<span class="line" id="L272">        <span class="tok-kw">while</span> (<span class="tok-kw">try</span> iter.next()) |step| <span class="tok-kw">switch</span> (step) {</span>
-<span class="line" id="L273">            .progress =&gt; |p| {</span>
-<span class="line" id="L274">                progress_node.setEstimatedTotalItems(p.total_runs);</span>
-<span class="line" id="L275">                progress_node.setCompletedItems(p.completed_runs);</span>
-<span class="line" id="L276">                progress_node.setName(p.current_name);</span>
-<span class="line" id="L277">                progress.maybeRefresh();</span>
-<span class="line" id="L278">            },</span>
-<span class="line" id="L279">            .result =&gt; |x| {</span>
-<span class="line" id="L280">                <span class="tok-kw">defer</span> x.deinit();</span>
-<span class="line" id="L281">                progress_node.setName(<span class="tok-str">&quot;&quot;</span>);</span>
-<span class="line" id="L282">                progress_node.setEstimatedTotalItems(<span class="tok-number">0</span>);</span>
-<span class="line" id="L283">                progress_node.setCompletedItems(<span class="tok-number">0</span>);</span>
-<span class="line" id="L284">                progress.refresh();</span>
-<span class="line" id="L285">                <span class="tok-kw">try</span> x.prettyPrint(writer, <span class="tok-null">true</span>);</span>
-<span class="line" id="L286">            },</span>
-<span class="line" id="L287">        };</span>
-<span class="line" id="L288">    }</span>
-<span class="line" id="L289">};</span>
-<span class="line" id="L290"></span>
-<span class="line" id="L291"><span class="tok-comment">/// Write the prettyPrint() header to a writer.</span></span>
-<span class="line" id="L292"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrintHeader</span>(writer: <span class="tok-kw">anytype</span>) !<span class="tok-type">void</span> {</span>
-<span class="line" id="L293">    <span class="tok-kw">try</span> writer.print(</span>
-<span class="line" id="L294">        <span class="tok-str">&quot;{s:&lt;22} {s:&lt;8} {s:&lt;14} {s:&lt;22} {s:&lt;28} {s:&lt;10} {s:&lt;10} {s:&lt;10}\n&quot;</span>,</span>
-<span class="line" id="L295">        .{</span>
-<span class="line" id="L296">            <span class="tok-str">&quot;benchmark&quot;</span>,</span>
-<span class="line" id="L297">            <span class="tok-str">&quot;runs&quot;</span>,</span>
-<span class="line" id="L298">            <span class="tok-str">&quot;total time&quot;</span>,</span>
-<span class="line" id="L299">            <span class="tok-str">&quot;time/run (avg ± σ)&quot;</span>,</span>
-<span class="line" id="L300">            <span class="tok-str">&quot;(min ... max)&quot;</span>,</span>
-<span class="line" id="L301">            <span class="tok-str">&quot;p75&quot;</span>,</span>
-<span class="line" id="L302">            <span class="tok-str">&quot;p99&quot;</span>,</span>
-<span class="line" id="L303">            <span class="tok-str">&quot;p995&quot;</span>,</span>
-<span class="line" id="L304">        },</span>
-<span class="line" id="L305">    );</span>
-<span class="line" id="L306">    <span class="tok-kw">const</span> dashes = <span class="tok-str">&quot;-------------------------&quot;</span>;</span>
-<span class="line" id="L307">    <span class="tok-kw">try</span> writer.print(dashes ++ dashes ++ dashes ++ dashes ++ dashes ++ <span class="tok-str">&quot;\n&quot;</span>, .{});</span>
-<span class="line" id="L308">}</span>
-<span class="line" id="L309"></span>
-<span class="line" id="L310"><span class="tok-comment">/// Get a copy of the system information, cpu type, cores, memory, etc.</span></span>
-<span class="line" id="L311"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">getSystemInfo</span>() !platform.OsInfo {</span>
-<span class="line" id="L312">    <span class="tok-kw">return</span> <span class="tok-kw">try</span> platform.getSystemInfo();</span>
+<span class="line" id="L237">                    self.remaining[<span class="tok-number">0</span>].name,</span>
+<span class="line" id="L238">                    <span class="tok-kw">try</span> runner.finish(),</span>
+<span class="line" id="L239">                ) };</span>
+<span class="line" id="L240">            }</span>
+<span class="line" id="L241">        }</span>
+<span class="line" id="L242"></span>
+<span class="line" id="L243">        <span class="tok-comment">/// Clean up the iterator if an error has occurred.</span></span>
+<span class="line" id="L244">        <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">abort</span>(self: *Iterator) <span class="tok-type">void</span> {</span>
+<span class="line" id="L245">            <span class="tok-kw">if</span> (self.runner) |*r| {</span>
+<span class="line" id="L246">                <span class="tok-kw">if</span> (self.remaining[<span class="tok-number">0</span>].config.hooks.after_all) |hook| hook();</span>
+<span class="line" id="L247">                r.abort();</span>
+<span class="line" id="L248">            }</span>
+<span class="line" id="L249">        }</span>
+<span class="line" id="L250">    };</span>
+<span class="line" id="L251"></span>
+<span class="line" id="L252">    <span class="tok-comment">/// Run all benchmarks using an iterator, collecting progress information</span></span>
+<span class="line" id="L253">    <span class="tok-comment">/// incrementally.</span></span>
+<span class="line" id="L254">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">iterator</span>(self: *<span class="tok-kw">const</span> Benchmark) !Iterator {</span>
+<span class="line" id="L255">        <span class="tok-kw">return</span> Iterator{</span>
+<span class="line" id="L256">            .allocator = self.allocator,</span>
+<span class="line" id="L257">            .b = self,</span>
+<span class="line" id="L258">            .remaining = self.benchmarks.items,</span>
+<span class="line" id="L259">            .runner = <span class="tok-null">null</span>,</span>
+<span class="line" id="L260">        };</span>
+<span class="line" id="L261">    }</span>
+<span class="line" id="L262"></span>
+<span class="line" id="L263">    <span class="tok-comment">/// Run all benchmarks and collect timing information.</span></span>
+<span class="line" id="L264">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">run</span>(self: Benchmark, writer: <span class="tok-kw">anytype</span>) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L265">        <span class="tok-kw">var</span> progress = std.Progress{};</span>
+<span class="line" id="L266">        <span class="tok-kw">const</span> progress_node = progress.start(<span class="tok-str">&quot;&quot;</span>, <span class="tok-number">0</span>);</span>
+<span class="line" id="L267">        <span class="tok-kw">defer</span> progress_node.end();</span>
+<span class="line" id="L268"></span>
+<span class="line" id="L269">        <span class="tok-comment">// Most allocations for pretty printing will be the same size each time,</span>
+</span>
+<span class="line" id="L270">        <span class="tok-comment">// so using an arena should reduce the allocation load.</span>
+</span>
+<span class="line" id="L271">        <span class="tok-kw">var</span> arena = std.heap.ArenaAllocator.init(self.allocator);</span>
+<span class="line" id="L272">        <span class="tok-kw">defer</span> arena.deinit();</span>
+<span class="line" id="L273"></span>
+<span class="line" id="L274">        <span class="tok-kw">try</span> prettyPrintHeader(writer);</span>
+<span class="line" id="L275">        <span class="tok-kw">var</span> iter = <span class="tok-kw">try</span> self.iterator();</span>
+<span class="line" id="L276">        <span class="tok-kw">while</span> (<span class="tok-kw">try</span> iter.next()) |step| <span class="tok-kw">switch</span> (step) {</span>
+<span class="line" id="L277">            .progress =&gt; |p| {</span>
+<span class="line" id="L278">                progress_node.setEstimatedTotalItems(p.total_runs);</span>
+<span class="line" id="L279">                progress_node.setCompletedItems(p.completed_runs);</span>
+<span class="line" id="L280">                progress_node.setName(p.current_name);</span>
+<span class="line" id="L281">                progress.maybeRefresh();</span>
+<span class="line" id="L282">            },</span>
+<span class="line" id="L283">            .result =&gt; |x| {</span>
+<span class="line" id="L284">                <span class="tok-kw">defer</span> x.deinit();</span>
+<span class="line" id="L285">                progress_node.setName(<span class="tok-str">&quot;&quot;</span>);</span>
+<span class="line" id="L286">                progress_node.setEstimatedTotalItems(<span class="tok-number">0</span>);</span>
+<span class="line" id="L287">                progress_node.setCompletedItems(<span class="tok-number">0</span>);</span>
+<span class="line" id="L288">                progress.refresh();</span>
+<span class="line" id="L289">                <span class="tok-kw">try</span> x.prettyPrint(arena.allocator(), writer, <span class="tok-null">true</span>);</span>
+<span class="line" id="L290">                _ = arena.reset(.retain_capacity);</span>
+<span class="line" id="L291">            },</span>
+<span class="line" id="L292">        };</span>
+<span class="line" id="L293">    }</span>
+<span class="line" id="L294">};</span>
+<span class="line" id="L295"></span>
+<span class="line" id="L296"><span class="tok-comment">/// Write the prettyPrint() header to a writer.</span></span>
+<span class="line" id="L297"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrintHeader</span>(writer: <span class="tok-kw">anytype</span>) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L298">    <span class="tok-kw">try</span> writer.print(</span>
+<span class="line" id="L299">        <span class="tok-str">&quot;{s:&lt;22} {s:&lt;8} {s:&lt;14} {s:&lt;22} {s:&lt;28} {s:&lt;10} {s:&lt;10} {s:&lt;10}\n&quot;</span>,</span>
+<span class="line" id="L300">        .{</span>
+<span class="line" id="L301">            <span class="tok-str">&quot;benchmark&quot;</span>,</span>
+<span class="line" id="L302">            <span class="tok-str">&quot;runs&quot;</span>,</span>
+<span class="line" id="L303">            <span class="tok-str">&quot;total time&quot;</span>,</span>
+<span class="line" id="L304">            <span class="tok-str">&quot;time/run (avg ± σ)&quot;</span>,</span>
+<span class="line" id="L305">            <span class="tok-str">&quot;(min ... max)&quot;</span>,</span>
+<span class="line" id="L306">            <span class="tok-str">&quot;p75&quot;</span>,</span>
+<span class="line" id="L307">            <span class="tok-str">&quot;p99&quot;</span>,</span>
+<span class="line" id="L308">            <span class="tok-str">&quot;p995&quot;</span>,</span>
+<span class="line" id="L309">        },</span>
+<span class="line" id="L310">    );</span>
+<span class="line" id="L311">    <span class="tok-kw">const</span> dashes = <span class="tok-str">&quot;-------------------------&quot;</span>;</span>
+<span class="line" id="L312">    <span class="tok-kw">try</span> writer.print(dashes ++ dashes ++ dashes ++ dashes ++ dashes ++ <span class="tok-str">&quot;\n&quot;</span>, .{});</span>
 <span class="line" id="L313">}</span>
 <span class="line" id="L314"></span>
-<span class="line" id="L315"><span class="tok-comment">/// Carries the results of a benchmark. The benchmark name and the recorded</span></span>
-<span class="line" id="L316"><span class="tok-comment">/// durations are available, and some basic statistics are automatically</span></span>
-<span class="line" id="L317"><span class="tok-comment">/// calculated. The timings can always be assumed to be sorted.</span></span>
-<span class="line" id="L318"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Result = <span class="tok-kw">struct</span> {</span>
-<span class="line" id="L319">    allocator: std.mem.Allocator,</span>
-<span class="line" id="L320">    name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
-<span class="line" id="L321">    readings: Readings,</span>
-<span class="line" id="L322"></span>
-<span class="line" id="L323">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">init</span>(</span>
-<span class="line" id="L324">        allocator: std.mem.Allocator,</span>
-<span class="line" id="L325">        name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
-<span class="line" id="L326">        readings: Runner.Readings,</span>
-<span class="line" id="L327">    ) !Result {</span>
-<span class="line" id="L328">        <span class="tok-kw">var</span> r = Result{</span>
-<span class="line" id="L329">            .allocator = allocator,</span>
-<span class="line" id="L330">            .name = name,</span>
-<span class="line" id="L331">            .readings = readings,</span>
-<span class="line" id="L332">        };</span>
-<span class="line" id="L333">        r.readings.sort();</span>
-<span class="line" id="L334">        <span class="tok-kw">return</span> r;</span>
-<span class="line" id="L335">    }</span>
-<span class="line" id="L336"></span>
-<span class="line" id="L337">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">deinit</span>(self: Result) <span class="tok-type">void</span> {</span>
-<span class="line" id="L338">        self.readings.deinit();</span>
-<span class="line" id="L339">    }</span>
-<span class="line" id="L340"></span>
-<span class="line" id="L341">    <span class="tok-comment">/// Formats and prints the benchmark result in a human readable format.</span></span>
-<span class="line" id="L342">    <span class="tok-comment">/// writer: Type that has the associated method print (for example std.io.getStdOut.writer())</span></span>
-<span class="line" id="L343">    <span class="tok-comment">/// colors: Whether to pretty-print with ANSI colors or not.</span></span>
-<span class="line" id="L344">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrint</span>(self: Result, writer: <span class="tok-kw">anytype</span>, colors: <span class="tok-type">bool</span>) !<span class="tok-type">void</span> {</span>
-<span class="line" id="L345">        <span class="tok-kw">var</span> buf: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
-<span class="line" id="L346"></span>
-<span class="line" id="L347">        <span class="tok-kw">const</span> s = Statistics(<span class="tok-type">u64</span>).init(self.readings.timings_ns);</span>
+<span class="line" id="L315"><span class="tok-comment">/// Get a copy of the system information, cpu type, cores, memory, etc.</span></span>
+<span class="line" id="L316"><span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">getSystemInfo</span>() !platform.OsInfo {</span>
+<span class="line" id="L317">    <span class="tok-kw">return</span> <span class="tok-kw">try</span> platform.getSystemInfo();</span>
+<span class="line" id="L318">}</span>
+<span class="line" id="L319"></span>
+<span class="line" id="L320"><span class="tok-comment">/// Carries the results of a benchmark. The benchmark name and the recorded</span></span>
+<span class="line" id="L321"><span class="tok-comment">/// durations are available, and some basic statistics are automatically</span></span>
+<span class="line" id="L322"><span class="tok-comment">/// calculated.</span></span>
+<span class="line" id="L323"><span class="tok-kw">pub</span> <span class="tok-kw">const</span> Result = <span class="tok-kw">struct</span> {</span>
+<span class="line" id="L324">    name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>,</span>
+<span class="line" id="L325">    readings: Readings,</span>
+<span class="line" id="L326"></span>
+<span class="line" id="L327">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">init</span>(name: []<span class="tok-kw">const</span> <span class="tok-type">u8</span>, readings: Runner.Readings) !Result {</span>
+<span class="line" id="L328">        <span class="tok-kw">return</span> Result{ .name = name, .readings = readings };</span>
+<span class="line" id="L329">    }</span>
+<span class="line" id="L330"></span>
+<span class="line" id="L331">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">deinit</span>(self: Result) <span class="tok-type">void</span> {</span>
+<span class="line" id="L332">        self.readings.deinit();</span>
+<span class="line" id="L333">    }</span>
+<span class="line" id="L334"></span>
+<span class="line" id="L335">    <span class="tok-comment">/// Formats and prints the benchmark result in a human readable format.</span></span>
+<span class="line" id="L336">    <span class="tok-comment">/// writer: Type that has the associated method print (for example std.io.getStdOut.writer())</span></span>
+<span class="line" id="L337">    <span class="tok-comment">/// colors: Whether to pretty-print with ANSI colors or not.</span></span>
+<span class="line" id="L338">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">prettyPrint</span>(</span>
+<span class="line" id="L339">        self: Result,</span>
+<span class="line" id="L340">        allocator: std.mem.Allocator,</span>
+<span class="line" id="L341">        writer: <span class="tok-kw">anytype</span>,</span>
+<span class="line" id="L342">        colors: <span class="tok-type">bool</span>,</span>
+<span class="line" id="L343">    ) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L344">        <span class="tok-kw">var</span> buf: [<span class="tok-number">128</span>]<span class="tok-type">u8</span> = <span class="tok-null">undefined</span>;</span>
+<span class="line" id="L345"></span>
+<span class="line" id="L346">        <span class="tok-kw">const</span> timings_ns = self.readings.timings_ns;</span>
+<span class="line" id="L347">        <span class="tok-kw">const</span> s = <span class="tok-kw">try</span> Statistics(<span class="tok-type">u64</span>).init(allocator, timings_ns);</span>
 <span class="line" id="L348">        <span class="tok-comment">// Benchmark name, number of iterations, and total time</span>
 </span>
 <span class="line" id="L349">        <span class="tok-kw">try</span> writer.print(<span class="tok-str">&quot;{s:&lt;22} &quot;</span>, .{self.name});</span>
@@ -502,7 +504,7 @@
 <span class="line" id="L380">        <span class="tok-kw">try</span> writer.writeAll(<span class="tok-str">&quot;\n&quot;</span>);</span>
 <span class="line" id="L381"></span>
 <span class="line" id="L382">        <span class="tok-kw">if</span> (self.readings.allocations) |allocs| {</span>
-<span class="line" id="L383">            <span class="tok-kw">const</span> m = Statistics(<span class="tok-type">usize</span>).init(allocs.maxes);</span>
+<span class="line" id="L383">            <span class="tok-kw">const</span> m = <span class="tok-kw">try</span> Statistics(<span class="tok-type">usize</span>).init(allocator, allocs.maxes);</span>
 <span class="line" id="L384">            <span class="tok-comment">// Benchmark name</span>
 </span>
 <span class="line" id="L385">            <span class="tok-kw">const</span> name = <span class="tok-kw">try</span> std.fmt.bufPrint(&amp;buf, <span class="tok-str">&quot;{s} [MEMORY]&quot;</span>, .{</span>
@@ -546,42 +548,48 @@
 <span class="line" id="L419">        <span class="tok-kw">if</span> (colors) <span class="tok-kw">try</span> writer.writeAll(color.code());</span>
 <span class="line" id="L420">    }</span>
 <span class="line" id="L421"></span>
-<span class="line" id="L422">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">writeJSON</span>(self: Result, writer: <span class="tok-kw">anytype</span>) !<span class="tok-type">void</span> {</span>
-<span class="line" id="L423">        <span class="tok-kw">const</span> timings_ns_stats = Statistics(<span class="tok-type">u64</span>).init(self.readings.timings_ns);</span>
-<span class="line" id="L424">        <span class="tok-kw">if</span> (self.readings.allocations) |allocs| {</span>
-<span class="line" id="L425">            <span class="tok-kw">const</span> allocation_maxes_stats = Statistics(<span class="tok-type">usize</span>).init(allocs.maxes);</span>
-<span class="line" id="L426">            <span class="tok-kw">try</span> writer.print(</span>
-<span class="line" id="L427">                <span class="tok-str">\\{{ &quot;name&quot;: &quot;{s}&quot;,</span></span>
+<span class="line" id="L422">    <span class="tok-kw">pub</span> <span class="tok-kw">fn</span> <span class="tok-fn">writeJSON</span>(</span>
+<span class="line" id="L423">        self: Result,</span>
+<span class="line" id="L424">        allocator: std.mem.Allocator,</span>
+<span class="line" id="L425">        writer: <span class="tok-kw">anytype</span>,</span>
+<span class="line" id="L426">    ) !<span class="tok-type">void</span> {</span>
+<span class="line" id="L427">        <span class="tok-kw">const</span> timings_ns_stats =</span>
+<span class="line" id="L428">            <span class="tok-kw">try</span> Statistics(<span class="tok-type">u64</span>).init(allocator, self.readings.timings_ns);</span>
+<span class="line" id="L429">        <span class="tok-kw">if</span> (self.readings.allocations) |allocs| {</span>
+<span class="line" id="L430">            <span class="tok-kw">const</span> allocation_maxes_stats =</span>
+<span class="line" id="L431">                <span class="tok-kw">try</span> Statistics(<span class="tok-type">usize</span>).init(allocator, allocs.maxes);</span>
+<span class="line" id="L432">            <span class="tok-kw">try</span> writer.print(</span>
+<span class="line" id="L433">                <span class="tok-str">\\{{ &quot;name&quot;: &quot;{s}&quot;,</span></span>
 
-<span class="line" id="L428">                <span class="tok-str">\\   &quot;timing_statistics&quot;: {}, &quot;timings&quot;: {},</span></span>
+<span class="line" id="L434">                <span class="tok-str">\\   &quot;timing_statistics&quot;: {}, &quot;timings&quot;: {},</span></span>
 
-<span class="line" id="L429">                <span class="tok-str">\\   &quot;max_allocation_statistics&quot;: {}, &quot;max_allocations&quot;: {} }}</span></span>
+<span class="line" id="L435">                <span class="tok-str">\\   &quot;max_allocation_statistics&quot;: {}, &quot;max_allocations&quot;: {} }}</span></span>
 
-<span class="line" id="L430">            ,</span>
-<span class="line" id="L431">                .{</span>
-<span class="line" id="L432">                    std.fmt.fmtSliceEscapeLower(self.name),</span>
-<span class="line" id="L433">                    statistics.fmtJSON(<span class="tok-type">u64</span>, <span class="tok-str">&quot;nanoseconds&quot;</span>, timings_ns_stats),</span>
-<span class="line" id="L434">                    format.fmtJSONArray(<span class="tok-type">u64</span>, self.readings.timings_ns),</span>
-<span class="line" id="L435">                    statistics.fmtJSON(<span class="tok-type">usize</span>, <span class="tok-str">&quot;bytes&quot;</span>, allocation_maxes_stats),</span>
-<span class="line" id="L436">                    format.fmtJSONArray(<span class="tok-type">usize</span>, allocs.maxes),</span>
-<span class="line" id="L437">                },</span>
-<span class="line" id="L438">            );</span>
-<span class="line" id="L439">        } <span class="tok-kw">else</span> {</span>
-<span class="line" id="L440">            <span class="tok-kw">try</span> writer.print(</span>
-<span class="line" id="L441">                <span class="tok-str">\\{{ &quot;name&quot;: &quot;{s}&quot;,</span></span>
+<span class="line" id="L436">            ,</span>
+<span class="line" id="L437">                .{</span>
+<span class="line" id="L438">                    std.fmt.fmtSliceEscapeLower(self.name),</span>
+<span class="line" id="L439">                    statistics.fmtJSON(<span class="tok-type">u64</span>, <span class="tok-str">&quot;nanoseconds&quot;</span>, timings_ns_stats),</span>
+<span class="line" id="L440">                    format.fmtJSONArray(<span class="tok-type">u64</span>, self.readings.timings_ns),</span>
+<span class="line" id="L441">                    statistics.fmtJSON(<span class="tok-type">usize</span>, <span class="tok-str">&quot;bytes&quot;</span>, allocation_maxes_stats),</span>
+<span class="line" id="L442">                    format.fmtJSONArray(<span class="tok-type">usize</span>, allocs.maxes),</span>
+<span class="line" id="L443">                },</span>
+<span class="line" id="L444">            );</span>
+<span class="line" id="L445">        } <span class="tok-kw">else</span> {</span>
+<span class="line" id="L446">            <span class="tok-kw">try</span> writer.print(</span>
+<span class="line" id="L447">                <span class="tok-str">\\{{ &quot;name&quot;: &quot;{s}&quot;,</span></span>
 
-<span class="line" id="L442">                <span class="tok-str">\\   &quot;timing_statistics&quot;: {}, &quot;timings&quot;: {} }}</span></span>
+<span class="line" id="L448">                <span class="tok-str">\\   &quot;timing_statistics&quot;: {}, &quot;timings&quot;: {} }}</span></span>
 
-<span class="line" id="L443">            ,</span>
-<span class="line" id="L444">                .{</span>
-<span class="line" id="L445">                    std.fmt.fmtSliceEscapeLower(self.name),</span>
-<span class="line" id="L446">                    statistics.fmtJSON(<span class="tok-type">u64</span>, <span class="tok-str">&quot;nanoseconds&quot;</span>, timings_ns_stats),</span>
-<span class="line" id="L447">                    format.fmtJSONArray(<span class="tok-type">u64</span>, self.readings.timings_ns),</span>
-<span class="line" id="L448">                },</span>
-<span class="line" id="L449">            );</span>
-<span class="line" id="L450">        }</span>
-<span class="line" id="L451">    }</span>
-<span class="line" id="L452">};</span>
-<span class="line" id="L453"></span>
+<span class="line" id="L449">            ,</span>
+<span class="line" id="L450">                .{</span>
+<span class="line" id="L451">                    std.fmt.fmtSliceEscapeLower(self.name),</span>
+<span class="line" id="L452">                    statistics.fmtJSON(<span class="tok-type">u64</span>, <span class="tok-str">&quot;nanoseconds&quot;</span>, timings_ns_stats),</span>
+<span class="line" id="L453">                    format.fmtJSONArray(<span class="tok-type">u64</span>, self.readings.timings_ns),</span>
+<span class="line" id="L454">                },</span>
+<span class="line" id="L455">            );</span>
+<span class="line" id="L456">        }</span>
+<span class="line" id="L457">    }</span>
+<span class="line" id="L458">};</span>
+<span class="line" id="L459"></span>
 </code></pre></body>
 </html>
